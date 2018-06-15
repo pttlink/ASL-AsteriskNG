@@ -20,6 +20,7 @@ KG7QIN
 Updates:
 
 06/03/18 - Merged changes of app_rpt.c from offical AllStarLink reporitory into app_rpt.c here.  A total of three changes were merged in, and this brings the version number up from 0.325 to 0.327.
+
 06/14/18 - Imported KG7QIN's Repository from GitHub to the private AllStarLink reporisotry to continue development.
            Pushed Dockerfile that successfully builds this an Debian Stretch (9.4.0)
 
@@ -76,16 +77,57 @@ You will need to compile and install the DAHDI driver code located here https://
  
  My test system is running Ubuntu 15.04 and I am using GCC 4.9 to compile this code.  Newer versions of GCC may not work with the code as it currently is.
 
+# Using Docker to run
+A Dockerfile has been created that will allow you to build this code as it currently is and run it.  
+The base image is Debian Stretch (9.4.0).
+There are no AllStarLink config files included in /etc/asterisk.  You will need to either import them into your Docker build yourself or share them from the host OS using -v
+
+To build:
+1.  Grab the Dockerfile from the Docker directory and place in directory by itself
+2.  Run: 
+    # docker build -t asl1.8-test1 . 
+
+To run:
+# docker run -v /etc/asterisk:/etc/asterisk -v /var/lib/asterisk/sounds:/var/lib/asterisk/sounds -v /var/log/asterisk:/var/log/asterisk -v /dev/dahdi:/dev/dahdi -v /dev/dsp:/dev/dsp  --privileged --net=host -d --name ASL --rm -i -t asl1.8-test1 -gcvvv
+
+Note:  You will need to have successfully build the DAHDI kernel modules with the AllStarLink patches and have this module loaded into your host OS's kernel.  You will also need to have the required config files in /etc/asterisk, sound files in /var/lib/asterisk/sound, and a log file directory of /var/log/asterisk for this to run.
+
+To connect to the Asterisk console:
+# docker exec -it ASL tcsh
+
+This container will automatically be destroyed upon exit
+
 # Compiling
-When compiling this code with a version of GCC that is newer than 4.9, you will likely encounter an error and everything will stop.
-<br>
-To fix this, you will need to have GCC-4.9 installed on your system and execute the following commands:
-<br>
-make clean<br>
-export PTLIB_CONFIG=/usr/share/ptlib/make/ptlib-config<br>
-./configure CC=gcc-4.9 CPP=cpp-4.9<br>
-export CC=gcc-4.9<br>
-export CPP=cpp-4.9<br>
-make<br>
-<br>
-The code *should* compile with out problems -- just ignore the warnings.
+
+This code has been successfully compiled on both Debian Stretch (9.4.0) and Ubuntu 16.04.  For Ubuntu 16.04, you will only need to use libdev-ssl and not libdev1.0-ssl.  The following commands below will download the files from KG7QIN's GitHub repository (soon to be updated for here), compile them and install them.
+
+# apt-get install git build-essential linux-headers-$(uname -r) linux-source-4.9 libss7-dev
+# apt-get install dahdi-source dahdi-linux
+# apt-get build-dep asterisk
+# apt-get install libssl1.0-dev
+# mkdir /usr/work
+# git clone https://github.com/KG7QIN/AllStarLink-Asterisk-1.8.git
+# wget https://github.com/KG7QIN/AllStarLink/raw/master/dahdi/dahdi-linux-complete-2.10.2%2B2.10.2.tar.gz
+# tar -zxf dahdi-linux-complete-2.10.2+2.10.2.tar.gz
+# cd dahdi-linux-complete-2.10.2+2.10.2
+# make clean
+# make
+# make install
+# make config
+
+# modprobe dahdi
+# modprobe dahdi-transcode 
+
+(Note that these two are probably not needed, but if you are going to run asterisk in a VM without any hardware, I recommend adding these to the /etc/modules file so that they load at startup.  It also ensure that DAHDI is loaded in if you try to start Asterisk right after installing and getting the missing pieces over/setup)
+
+# cd ..
+# cd AllStarLink-Asterisk-1.8/
+# make clean
+# ./configure LDFLAGS=-zmuldefs CFLAGS=-Wno-unused
+# make menuselect
+  (then select save and exit.  this just rebuilds the options for making the various pieces of Asterisk which includes app_rpt.c)
+# make
+# make install 
+
+If all goes well, you will have an Asterisk 1.8 system with the app_rpt "suite" of ported modules/software installed on your system.  You will still need to bring over the necessary config files from AllStarLink for your node to function.
+

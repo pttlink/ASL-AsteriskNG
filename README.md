@@ -104,6 +104,16 @@ To connect to the Asterisk console:
 
 This container will automatically be destroyed upon exit
 
+You will also need to run the rd.updatenodelist script before you can connect to other nodes.
+Assuming you have rc.updatenodelist sitting in /etc/asterisk, you would run this:
+<pre>
+# docker exec -it ASL sh
+# /etc/asterisk/rc.updatenodelist &
+# asterisk -cvvvvr
+</pre>
+
+When exiting asterisk your terminal window may freeze due to rc.updatenodelist running in the background.  Just close the window to fix this.
+
 # Compiling
 
 This code has been successfully compiled on both Debian Stretch (9.4.0) and Ubuntu 16.04.  For Ubuntu 16.04, you will only need to use libdev-ssl and not libdev1.0-ssl.  The following commands below will download the files from KG7QIN's GitHub repository (soon to be updated for here), compile them and install them.

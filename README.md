@@ -12,17 +12,19 @@ the app_rpt "suite" of programs that runs AllStarLink, to differences within Ast
 Right now, everything is on the "master" branch.  This is due to no version being released yet.  That will change in the future as development moves forward.
 After the remaining bits are ported over, I fully intend to create the first branch in this repo to push development along.
 
-73s
-Stacy
-KG7QIN
+73s<br/>
+Stacy<br/>
+KG7QIN<br/>
 
 ---------------------------------------------------------------------------------------------------------------------------------
 Updates:
 
+<pre>
 06/03/18 - Merged changes of app_rpt.c from offical AllStarLink reporitory into app_rpt.c here.  A total of three changes were merged in, and this brings the version number up from 0.325 to 0.327.
 
 06/14/18 - Imported KG7QIN's Repository from GitHub to the private AllStarLink reporisotry to continue development.
            Pushed Dockerfile that successfully builds this an Debian Stretch (9.4.0)
+</pre>
 
 ---------------------------------------------------------------------------------------------------------------------------------
 I'm placing this code here so that:
@@ -82,18 +84,23 @@ A Dockerfile has been created that will allow you to build this code as it curre
 The base image is Debian Stretch (9.4.0).
 There are no AllStarLink config files included in /etc/asterisk.  You will need to either import them into your Docker build yourself or share them from the host OS using -v
 
-To build:
-1.  Grab the Dockerfile from the Docker directory and place in directory by itself
-2.  Run: 
-    # docker build -t asl1.8-test1 . 
+To build:<br/>
+Grab the Dockerfile from the Docker directory and place in directory by itself
+<pre>
+# docker build -t asl1.8-test1 . 
+</pre>
 
 To run:
+<pre>
 # docker run -v /etc/asterisk:/etc/asterisk -v /var/lib/asterisk/sounds:/var/lib/asterisk/sounds -v /var/log/asterisk:/var/log/asterisk -v /dev/dahdi:/dev/dahdi -v /dev/dsp:/dev/dsp  --privileged --net=host -d --name ASL --rm -i -t asl1.8-test1 -gcvvv
+</pre>
 
 Note:  You will need to have successfully build the DAHDI kernel modules with the AllStarLink patches and have this module loaded into your host OS's kernel.  You will also need to have the required config files in /etc/asterisk, sound files in /var/lib/asterisk/sound, and a log file directory of /var/log/asterisk for this to run.
 
 To connect to the Asterisk console:
+<pre>
 # docker exec -it ASL tcsh
+</pre>
 
 This container will automatically be destroyed upon exit
 
@@ -101,6 +108,7 @@ This container will automatically be destroyed upon exit
 
 This code has been successfully compiled on both Debian Stretch (9.4.0) and Ubuntu 16.04.  For Ubuntu 16.04, you will only need to use libdev-ssl and not libdev1.0-ssl.  The following commands below will download the files from KG7QIN's GitHub repository (soon to be updated for here), compile them and install them.
 
+<pre>
 # apt-get install git build-essential linux-headers-$(uname -r) linux-source-4.9 libss7-dev
 # apt-get install dahdi-source dahdi-linux
 # apt-get build-dep asterisk
@@ -128,6 +136,7 @@ This code has been successfully compiled on both Debian Stretch (9.4.0) and Ubun
   (then select save and exit.  this just rebuilds the options for making the various pieces of Asterisk which includes app_rpt.c)
 # make
 # make install 
+</pre> 
 
 If all goes well, you will have an Asterisk 1.8 system with the app_rpt "suite" of ported modules/software installed on your system.  You will still need to bring over the necessary config files from AllStarLink for your node to function.
 

@@ -23,7 +23,7 @@ Updates:
 06/03/18 - Merged changes of app_rpt.c from offical AllStarLink reporitory into app_rpt.c here.  A total of three changes were merged in, and this brings the version number up from 0.325 to 0.327.
 
 06/14/18 - Imported KG7QIN's Repository from GitHub to the private AllStarLink reporisotry to continue development.
-           Pushed Dockerfile that successfully builds this an Debian Stretch (9.4.0)
+           Pushed Dockerfile that successfully builds this on Debian Stretch (9.4.0)
 </pre>
 
 ---------------------------------------------------------------------------------------------------------------------------------

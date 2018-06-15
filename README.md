@@ -12,7 +12,7 @@ the app_rpt "suite" of programs that runs AllStarLink to differences within the 
 Right now, everything is on the "master" branch.  This is due to no version being released yet.  That will change in the future as development moves forward.
 After the remaining bits are ported over, I fully intend to create the first branch in this repo to push development along.
 
-73s<br/>
+73<br/>
 Stacy<br/>
 KG7QIN<br/>
 

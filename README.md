@@ -1,11 +1,27 @@
 # AllStarLink-Asterisk-1.8
-Start of porting AllStarLink modules to Asterisk 1.8.32.3 - very alpha software!  Not for production use!!!
+Start of porting AllStarLink modules to Asterisk 1.8.32.3 
+
+Welcome to what is intended to be the first major update of Asterisk for AllStarLink since 1.4.23-pre was forked many many years ago.
+This repo is an import of my (KG7QIN's) repo with the same name from GitHub at https://github.com/KG7QIN/AllStarLink-Asterisk-1.8
+
+The differences between this repo and that one are that as of 6/14/18, all the development to get this running will be done here instead of there.
+
+This code does run, but there are some problems with it still.  The problems range from those that were "inherited" from the 1.4 code base of
+the app_rpt "suite" of programs that runs AllStarLink, to differences within Asterisk 1.8 not working correctly due to internal changes.
+
+Right now, everything is on the "master" branch.  This is due to no version being released yet.  That will change in the future as development moves forward.
+After the remaining bits are ported over, I fully intend to create the first branch in this repo to push development along.
+
+73s
+Stacy
+KG7QIN
 
 ---------------------------------------------------------------------------------------------------------------------------------
 Updates:
 
 06/03/18 - Merged changes of app_rpt.c from offical AllStarLink reporitory into app_rpt.c here.  A total of three changes were merged in, and this brings the version number up from 0.325 to 0.327.
 06/14/18 - Imported KG7QIN's Repository from GitHub to the private AllStarLink reporisotry to continue development.
+           Pushed Dockerfile that successfully builds this an Debian Stretch (9.4.0)
 
 ---------------------------------------------------------------------------------------------------------------------------------
 I'm placing this code here so that:

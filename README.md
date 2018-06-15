@@ -104,7 +104,7 @@ To connect to the Asterisk console:
 
 This container will automatically be destroyed upon exit
 
-You will also need to run the rd.updatenodelist script before you can connect to other nodes.
+You will also need to run the rc.updatenodelist script before you can connect to other nodes.
 Assuming you have rc.updatenodelist sitting in /etc/asterisk, you would run this:
 <pre>
 # docker exec -it ASL sh

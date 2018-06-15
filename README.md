@@ -99,7 +99,7 @@ Note:  You will need to have successfully build the DAHDI kernel modules with th
 
 To connect to the Asterisk console:
 <pre>
-# docker exec -it ASL tcsh
+# docker exec -it ASL sh /usr/sbin/asterisk -cvvvr
 </pre>
 
 This container will automatically be destroyed upon exit

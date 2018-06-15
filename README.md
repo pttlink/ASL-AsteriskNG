@@ -7,7 +7,7 @@ This repo is an import of my (KG7QIN's) repo with the same name from GitHub at h
 The differences between this repo and that one are that as of 6/14/18, all the development to get this running will be done here instead of there.
 
 This code does run, but there are some problems with it still.  The problems range from those that were "inherited" from the 1.4 code base of
-the app_rpt "suite" of programs that runs AllStarLink, to differences within Asterisk 1.8 not working correctly due to internal changes.
+the app_rpt "suite" of programs that runs AllStarLink to differences within the Asterisk 1.8 code base that are causing issue.
 
 Right now, everything is on the "master" branch.  This is due to no version being released yet.  That will change in the future as development moves forward.
 After the remaining bits are ported over, I fully intend to create the first branch in this repo to push development along.

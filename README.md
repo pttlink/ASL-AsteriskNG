@@ -24,6 +24,9 @@ Updates:
 
 06/14/18 - Imported KG7QIN's Repository from GitHub to the private AllStarLink reporisotry to continue development.
            Pushed Dockerfile that successfully builds this on Debian Stretch (9.4.0)
+           
+06/18/18 - Finished porting the remaining bits over to Asterisk 1.8 - chan_rptdir, chan_tlb, chan_usrp, and chan_beagle all compile and successfully load into Asterisk 1.8.  
+           The Dockerfile and compile info below have been updated to build all the modules now with debugging info enabled.
 </pre>
 
 ---------------------------------------------------------------------------------------------------------------------------------
@@ -57,8 +60,6 @@ chan_echolink<br>
 chan_simpleusb<br>
 chan_usbradio<br>
 chan_voter<br>
-
-Modules that have not yet been ported:<br>
 chan_beagle<br>
 chan_rptdir<br>
 chan_tlb<br>
@@ -119,12 +120,14 @@ When exiting asterisk your terminal window may freeze due to rc.updatenodelist r
 This code has been successfully compiled on both Debian Stretch (9.4.0) and Ubuntu 16.04.  For Ubuntu 16.04, you will only need to use libdev-ssl and not libdev1.0-ssl.  The following commands below will download the files from KG7QIN's GitHub repository (soon to be updated for here), compile them and install them.
 
 <pre>
-# apt-get install git build-essential linux-headers-$(uname -r) linux-source-4.9 libss7-dev
-# apt-get install dahdi-source dahdi-linux
+# apt-get install git build-essential linux-headers-$(uname -r) linux-source-4.9 libss7-dev wget apt-utils
+# apt-get install dahdi-source dahdi-linux aptitude gawk libusb-dev
 # apt-get build-dep asterisk
 # apt-get install libssl1.0-dev
+-> If building on Ubuntu 16.04, the libssl1.0-dev is not needed, just make sure libssl-dev is installed
+
 # mkdir /usr/work
-# git clone https://github.com/KG7QIN/AllStarLink-Asterisk-1.8.git
+# git clone git@git.allstarlink.org:KG7QIN/AllStarLink-Asterisk-1.8.git
 # wget https://github.com/KG7QIN/AllStarLink/raw/master/dahdi/dahdi-linux-complete-2.10.2%2B2.10.2.tar.gz
 # tar -zxf dahdi-linux-complete-2.10.2+2.10.2.tar.gz
 # cd dahdi-linux-complete-2.10.2+2.10.2
@@ -133,20 +136,38 @@ This code has been successfully compiled on both Debian Stretch (9.4.0) and Ubun
 # make install
 # make config
 
-# modprobe dahdi
-# modprobe dahdi-transcode 
+-> I recommend adding the following two modules to the /etc/modules file so that they load at startup.  This will ensure that DAHDI is loaded for Asterisk to function correctly
 
-(Note that these two are probably not needed, but if you are going to run asterisk in a VM without any hardware, I recommend adding these to the /etc/modules file so that they load at startup.  It also ensure that DAHDI is loaded in if you try to start Asterisk right after installing and getting the missing pieces over/setup)
+# modprobe dahdi
+# modprobe dahdi-transcode
 
 # cd ..
 # cd AllStarLink-Asterisk-1.8/
 # make clean
-# ./configure LDFLAGS=-zmuldefs CFLAGS=-Wno-unused
-# make menuselect
-  (then select save and exit.  this just rebuilds the options for making the various pieces of Asterisk which includes app_rpt.c)
+# ../configure LDFLAGS="-zmuldefs -lasound" CFLAGS="-Wno-unused -Wno-all -Wno-int-conversion -g"
+# make menuselect.makeopts
+# menuselect/menuselect --enable app_rpt --enable chan_beagle --enable chan_tlb --enable chan_usrp --enable chan_rtpdir --enable chan_usbradio \
+           --enable chan_simpleusb --enable chan_echolink --enable app_gps --enable chan_voter menuselect.makeopts
 # make
 # make install 
 </pre> 
 
-If all goes well, you will have an Asterisk 1.8 system with the app_rpt "suite" of ported modules/software installed on your system.  You will still need to bring over the necessary config files from AllStarLink for your node to function.
+Congratulations!  If all went well, you will have a complete install of Asterisk 1.8 with the AllStarLink app_rpt programs on your computer.
 
+Note that these steps are purposely compiling Asterisk and modules with debugging info (-g).  This is to make it easier to collect information about various problems while testing the port out.
+
+Please test and abuse this and let me know what problems you find. Ideally, we can use the issues page at https://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8/issues to track any problems that are found and resolved.
+
+
+There are also some changes that you will need to make to your extensions.conf file (or you an opt to convert it to either extensions.ael or extensions.lua).
+
+One of these changes is how app_rpt is called.
+
+Convert any of your lines that are similar to this:
+Rpt(${EXTEN:1}|Pv|${CALLERID(name)}-P)
+
+To this:
+
+Rpt(${EXTEN:1},Pv,${CALLERID(name)}-P)
+
+Commas have replaced the | in Astersk 1.8's dialplan.  Failure to update your extensions.conf will result in Asterisk not loading it correctly. 

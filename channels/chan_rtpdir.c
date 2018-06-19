@@ -23,6 +23,8 @@
  * 
  * \author KI4LKF <ham44865@yahoo.com>
  *
+ * \note Stacy Olivas, KG7QIN, <kg7qin@arrl.net> ported it to Asterisk 1.8
+ *
  * \ingroup channel_drivers
  */
 
@@ -337,10 +339,10 @@ static struct ast_frame  *rtpdir_xread(struct ast_channel *ast)
                    ast_log(LOG_NOTICE, "received %c\n",buf[0]);
                 }
 		p->fr.frametype = 0;
-		p->fr.subclass = 0;
+		p->fr.subclass.integer = 0;
 		p->fr.datalen = 0;
 		p->fr.samples = 0;
-		p->fr.data =  NULL;
+		p->fr.data.ptr =  NULL;
 		p->fr.src = type;
 		p->fr.offset = 0;
 		p->fr.mallocd=0;
@@ -366,8 +368,8 @@ static struct ast_frame  *rtpdir_xread(struct ast_channel *ast)
 	fr.datalen = 0;
 	fr.samples = 0;
 	fr.frametype = 0;
-	fr.subclass = 0;
-	fr.data =  0;
+	fr.subclass.integer = 0;
+	fr.data.ptr =  0;
 	fr.src = type;
 	fr.offset = 0;
 	fr.mallocd=0;
@@ -416,8 +418,8 @@ static int rtpdir_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 				fr.datalen = 0;
 				fr.samples = 0;
 				fr.frametype = AST_FRAME_CONTROL;
-				fr.subclass = AST_CONTROL_RADIO_KEY;
-				fr.data =  0;
+				fr.subclass.integer = AST_CONTROL_RADIO_KEY;
+				fr.data.ptr =  0;
 				fr.src = type;
 				fr.offset = 0;
 				fr.mallocd=0;
@@ -434,8 +436,8 @@ static int rtpdir_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 			fr.datalen = LINEAR_FRAME_SIZE * 2;
 			fr.samples =  LINEAR_FRAME_SIZE;
 			fr.frametype = AST_FRAME_VOICE;
-			fr.subclass = AST_FORMAT_SLINEAR;
-			fr.data =  buf + AST_FRIENDLY_OFFSET;
+			fr.subclass.integer = AST_FORMAT_SLINEAR;
+			fr.data.ptr =  buf + AST_FRIENDLY_OFFSET;
 			fr.src = type;
 			fr.offset = AST_FRIENDLY_OFFSET;
 			fr.mallocd=0;
@@ -449,8 +451,8 @@ static int rtpdir_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 		fr.datalen = 0;
 		fr.samples = 0;
 		fr.frametype = AST_FRAME_CONTROL;
-		fr.subclass = AST_CONTROL_RADIO_UNKEY;
-		fr.data =  0;
+		fr.subclass.integer = AST_CONTROL_RADIO_UNKEY;
+		fr.data.ptr =  0;
 		fr.src = type;
 		fr.offset = 0;
 		fr.mallocd=0;
@@ -460,7 +462,7 @@ static int rtpdir_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 	} 
 	if (p->rxkey) p->rxkey--;
 
-	if (!(frame->subclass & (AST_FORMAT_SLINEAR))) {
+	if (!(frame->subclass.integer & (AST_FORMAT_SLINEAR))) {
 		ast_log(LOG_WARNING, "Cannot handle frames in %d format\n", frame->subclass);
 		return 0;
 	}
@@ -468,7 +470,7 @@ static int rtpdir_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 	{
 		p->keepalive = KEEPALIVE_TIME;
 		memcpy(&p->txbuf[LINEAR_FRAME_SIZE * 2 * p->txindex++],
-			frame->data,LINEAR_FRAME_SIZE * 2);
+			frame->data.ptr,LINEAR_FRAME_SIZE * 2);
 	}	
 	if (p->txindex >= BLOCKING_FACTOR)
 	{

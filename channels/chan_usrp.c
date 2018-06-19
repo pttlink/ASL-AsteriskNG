@@ -25,6 +25,8 @@
  * 
  * \author Jim Dixon <jim@lambdatel.com>, KA1RBI <ikj1234i at yahoo dot-com>
  *
+ * \note Stacy Olivas, KG7QIN, <kg7qin@arrl.net> ported it to Asterisk 1.8
+ *
  * \ingroup channel_drivers
  */
 
@@ -129,7 +131,6 @@ static int usrp_digit_begin(struct ast_channel *c, char digit);
 static int usrp_digit_end(struct ast_channel *c, char digit, unsigned int duratiion);
 static int usrp_text(struct ast_channel *c, const char *text);
 
-
 static const struct ast_channel_tech usrp_tech = {
 	.type = type,
 	.description = tdesc,
@@ -148,7 +149,23 @@ static const struct ast_channel_tech usrp_tech = {
 #define MAX_CHANS 16
 static struct usrp_pvt *usrp_channels[MAX_CHANS];
 
-static int handle_usrp_show(int fd, int argc, char *argv[])
+static char show_usage[] = "Usage: usrp show\n";
+
+static char *res2cli(int r)
+
+{
+	switch (r)
+	{
+	    case RESULT_SUCCESS:
+		return(CLI_SUCCESS);
+	    case RESULT_SHOWUSAGE:
+		return(CLI_SHOWUSAGE);
+	    default:
+		return(CLI_FAILURE);
+	}
+}
+
+static int USRP_do_show(int fd, int argc, char *argv[])
 {
 	char s[256];
 	struct usrp_pvt *p;
@@ -176,10 +193,23 @@ static int handle_usrp_show(int fd, int argc, char *argv[])
 	return 0;
 }
 
-static struct ast_cli_entry cli_usrp_show = {
-	{ "usrp", "show", NULL },
-	handle_usrp_show, NULL,
-	NULL };
+static char *handle_cli_show(struct ast_cli_entry *e,
+	int cmd, struct ast_cli_args *a)
+{
+        switch (cmd) {
+        case CLI_INIT:
+                e->command = "usrp show";
+                e->usage = show_usage;
+                return NULL;
+        case CLI_GENERATE:
+                return NULL;
+	}
+	return res2cli(USRP_do_show(a->fd,a->argc,a->argv));
+}
+
+static struct ast_cli_entry usrp_cli[] = {
+	AST_CLI_DEFINE(handle_cli_show,"Show USRP info")
+};	
 
 static int usrp_call(struct ast_channel *ast, char *dest, int timeout)
 {
@@ -400,10 +430,10 @@ static struct ast_frame  *usrp_xread(struct ast_channel *ast)
 		ast_log(LOG_NOTICE,"Received packet from %s, expecting it from %s\n",
 			ast_inet_ntoa(si_them.sin_addr),ast_inet_ntoa(p->si_other.sin_addr));
 		p->fr.frametype = 0;
-		p->fr.subclass = 0;
+		p->fr.subclass.integer = 0;
 		p->fr.datalen = 0;
 		p->fr.samples = 0;
-		p->fr.data =  NULL;
+		p->fr.data.ptr =  NULL;
 		p->fr.src = type;
 		p->fr.offset = 0;
 		p->fr.mallocd=0;
@@ -442,8 +472,8 @@ static struct ast_frame  *usrp_xread(struct ast_channel *ast)
 	fr.datalen = 0;
 	fr.samples = 0;
 	fr.frametype = 0;
-	fr.subclass = 0;
-	fr.data =  0;
+	fr.subclass.integer = 0;
+	fr.data.ptr =  0;
 	fr.src = type;
 	fr.offset = 0;
 	fr.mallocd=0;
@@ -474,7 +504,7 @@ static int usrp_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 	/* Write a frame of (presumably voice) data */
 	if (frame->frametype != AST_FRAME_VOICE) return 0;
 
-	if (!(frame->subclass & (AST_FORMAT_SLINEAR))) {
+	if (!(frame->subclass.integer & (AST_FORMAT_SLINEAR))) {
 		ast_log(LOG_WARNING, "Cannot handle frames in %d format\n", frame->subclass);
 		return 0;
 	}
@@ -508,8 +538,8 @@ static int usrp_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 				fr.datalen = 0;
 				fr.samples = 0;
 				fr.frametype = AST_FRAME_CONTROL;
-				fr.subclass = AST_CONTROL_RADIO_KEY;
-				fr.data =  0;
+				fr.subclass.integer = AST_CONTROL_RADIO_KEY;
+				fr.data.ptr =  0;
 				fr.src = type;
 				fr.offset = 0;
 				fr.mallocd=0;
@@ -526,8 +556,8 @@ static int usrp_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 			fr.datalen = USRP_VOICE_FRAME_SIZE;
 			fr.samples = 160;
 			fr.frametype = AST_FRAME_VOICE;
-			fr.subclass = AST_FORMAT_SLINEAR;
-			fr.data =  buf + AST_FRIENDLY_OFFSET;
+			fr.subclass.integer = AST_FORMAT_SLINEAR;
+			fr.data.ptr =  buf + AST_FRIENDLY_OFFSET;
 			fr.src = type;
 			fr.offset = AST_FRIENDLY_OFFSET;
 			fr.mallocd=0;
@@ -541,8 +571,8 @@ static int usrp_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 		fr.datalen = 0;
 		fr.samples = 0;
 		fr.frametype = AST_FRAME_CONTROL;
-		fr.subclass = AST_CONTROL_RADIO_UNKEY;
-		fr.data =  0;
+		fr.subclass.integer = AST_CONTROL_RADIO_UNKEY;
+		fr.data.ptr =  0;
 		fr.src = type;
 		fr.offset = 0;
 		fr.mallocd=0;
@@ -556,7 +586,7 @@ static int usrp_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 
 	p->writect++;
 	p->unkey_owed = 1;
-	memcpy(bufdata, frame->data, frame->datalen);
+	memcpy(bufdata, frame->data.ptr, frame->datalen);
 	memset(bufhdrp, 0, sizeof(struct _chan_usrp_bufhdr));
 	memcpy(bufhdrp->eye, "USRP", 4);
 	bufhdrp->seq = htonl(p->send_seqno++);
@@ -628,21 +658,27 @@ static struct ast_channel *usrp_request(const char *type, int format, void *data
 
 static int unload_module(void)
 {
+	ast_cli_unregister_multiple(usrp_cli,sizeof(usrp_cli) /
+		sizeof(struct ast_cli_entry));
 	/* First, take us out of the channel loop */
 	ast_channel_unregister(&usrp_tech);
-	ast_cli_unregister(&cli_usrp_show);
 	return 0;
 }
 
 static int load_module(void)
 {
-	ast_cli_register(&cli_usrp_show);
+	/* Register cli extensions */
+	ast_cli_register_multiple(usrp_cli,sizeof(usrp_cli) /
+		sizeof(struct ast_cli_entry));
 	/* Make sure we can register our channel type */
 	if (ast_channel_register(&usrp_tech)) {
 		ast_log(LOG_ERROR, "Unable to register channel class %s\n", type);
-		return -1;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 	return 0;
 }
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "USRP Channel Module");
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "USRP Channel Module",
+		.load = load_module,
+		.unload = unload_module);
+

@@ -23,7 +23,7 @@ RUN apt-get update \
 
 RUN mkdir /usr/work \
 	&& cd /usr/work \
-	&& git clone https://github.com/KG7QIN/AllStarLink-Asterisk-1.8.git \
+	&& git clone git@git.allstarlink.org:KG7QIN/AllStarLink-Asterisk-1.8.git \
     	&& wget https://github.com/KG7QIN/AllStarLink/raw/master/dahdi/dahdi-linux-complete-2.10.2%2B2.10.2.tar.gz 
 # Run Asterisk Prereq install script
 RUN mkdir /etc/vpb \

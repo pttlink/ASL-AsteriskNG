@@ -1,6 +1,6 @@
 # AllStarLink 1.8 Test Port
 #
-# VERSION 0.0.12
+# VERSION 0.0.13
 #
 FROM debian:stretch
 
@@ -19,7 +19,7 @@ RUN echo "deb-src http://mirrors.kernel.org/debian/ stretch main" >> /etc/apt/so
 
 RUN apt-get update \
     	&& apt-get install -y git build-essential linux-headers-$(uname -r) linux-source-4.9 libss7-dev wget apt-utils \
-         dahdi-source dahdi-linux aptitude tcsh gawk
+         dahdi-source dahdi-linux aptitude tcsh gawk libusb-dev
 
 RUN mkdir /usr/work \
 	&& cd /usr/work \
@@ -63,11 +63,10 @@ RUN cd /usr/work/dahdi-linux-complete-2.10.2+2.10.2/ \
 # Build Asterisk 1.8 port
 RUN cd /usr/work/AllStarLink-Asterisk-1.8/ \
     	&& make distclean \
-    	&& ./configure LDFLAGS=-zmuldefs CFLAGS=-Wno-unused \
+    	&& ./configure LDFLAGS="-zmuldefs -lasound" CFLAGS="-Wno-unused -Wno-all -Wno-int-conversion -g" \
         && make menuselect.makeopts || : \
-        && menuselect/menuselect --enable app_rpt --disable chan_beagle --disable chan_tlb --disable chan_usrp --disable chan_rtpdir menuselect.makeopts || : \
-	&& rm channels/chan_usrp.c \
-	&& rm channels/chan_rtpdir.c \
+        && menuselect/menuselect --enable app_rpt --enable chan_beagle --enable chan_tlb --enable chan_usrp --enable chan_rtpdir --enable chan_usbradio \
+           --enable chan_simpleusb --enable chan_echolink --enable app_gps --enable chan_voter menuselect.makeopts || : \
         && make \ 
 	&& make install
 

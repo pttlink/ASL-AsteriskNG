@@ -1,3 +1,4 @@
+#define NEW_ASTERISK
 /* #define	OLD_ASTERISK */
 /*
  * Asterisk -- An open source telephony toolkit.
@@ -25,6 +26,8 @@
  * 
  * \author Scott Lawson/KI4LKF <ham44865@yahoo.com>
  * \author Jim Dixon, WB6NIL <jim@lambdatel.com>
+ *
+ * \note Stacy Olivas, KG7QIN, <kg7qin@arrl.net> ported it to Asterisk 1.8
  *
  * \ingroup channel_drivers
  */
@@ -147,10 +150,9 @@ static const char tdesc[] = "TheLinkBox channel driver";
 static char type[] = "tlb";
 
 int run_forever = 1;
+
 static int killing = 0;
 static int nullfd = -1;
-
-
 /* TheLinkBox audio packet heafer */
 struct rtpVoice_t {
 #ifdef RTP_BIG_ENDIAN
@@ -406,6 +408,10 @@ static char nodedump_usage[] =
 static char nodeget_usage[] =
 "Usage: tlb nodeget <nodename|callsign|ipaddr> <lookup-data>\n"
 "       Looks up tlb node entry\n";
+
+#ifdef  NEW_ASTERISK
+        struct ast_flags zeroflag = {0};
+#endif
 
 #ifndef	NEW_ASTERISK
 
@@ -1212,10 +1218,10 @@ static struct ast_frame  *TLB_xread(struct ast_channel *ast)
   
 	memset(&p->fr,0,sizeof(struct ast_frame));
         p->fr.frametype = 0;
-        p->fr.subclass = 0;
+        p->fr.subclass.integer = 0;
         p->fr.datalen = 0;
         p->fr.samples = 0;
-        p->fr.data =  NULL;
+        p->fr.data.ptr =  NULL;
         p->fr.src = type;
         p->fr.offset = 0;
         p->fr.mallocd=0;
@@ -1276,8 +1282,8 @@ static int TLB_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 				fr.datalen = 0;
 				fr.samples = 0;
 				fr.frametype = AST_FRAME_CONTROL;
-				fr.subclass = AST_CONTROL_RADIO_KEY;
-				fr.data =  0;
+				fr.subclass.integer = AST_CONTROL_RADIO_KEY;
+				fr.data.ptr =  0;
 				fr.src = type;
 				fr.offset = 0;
 				fr.mallocd=0;
@@ -1295,8 +1301,8 @@ static int TLB_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 			fr.datalen = tlb_codecs[p->rxcodec].frame_size;
 			fr.samples = 160;
 			fr.frametype = AST_FRAME_VOICE;
-			fr.subclass = tlb_codecs[p->rxcodec].format;
-			fr.data =  buf + AST_FRIENDLY_OFFSET;
+			fr.subclass.integer = tlb_codecs[p->rxcodec].format;
+			fr.data.ptr =  buf + AST_FRIENDLY_OFFSET;
 			fr.src = type;
 			fr.offset = AST_FRIENDLY_OFFSET;
 			fr.mallocd=0;
@@ -1312,8 +1318,8 @@ static int TLB_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 		fr.datalen = 0;
 		fr.samples = 0;
 		fr.frametype = AST_FRAME_CONTROL;
-		fr.subclass = AST_CONTROL_RADIO_UNKEY;
-		fr.data =  0;
+		fr.subclass.integer = AST_CONTROL_RADIO_UNKEY;
+		fr.data.ptr =  0;
 		fr.src = type;
 		fr.offset = 0;
 		fr.mallocd=0;
@@ -1358,13 +1364,13 @@ static int TLB_xwrite(struct ast_channel *ast, struct ast_frame *frame)
         else
         {
            /* Asterisk to TheLinkBox */
-           if (!(frame->subclass & (tlb_codecs[p->txcodec].format))) {
+           if (!(frame->subclass.integer & (tlb_codecs[p->txcodec].format))) {
                 ast_log(LOG_WARNING, "Cannot handle frames in %d format\n", frame->subclass);
 		ast_mutex_unlock(&instp->lock);
                 return 0;
            }
            if (p->txkey || p->txindex)  {
-                memcpy(instp->audio_all.data + (tlb_codecs[p->txcodec].frame_size * p->txindex++), frame->data,tlb_codecs[p->txcodec].frame_size);
+                memcpy(instp->audio_all.data + (tlb_codecs[p->txcodec].frame_size * p->txindex++), frame->data.ptr,tlb_codecs[p->txcodec].frame_size);
            }      
            if (p->txindex >= tlb_codecs[p->txcodec].blocking_factor) {
 		ast_mutex_lock(&instp->lock);
@@ -1719,7 +1725,7 @@ static char *handle_cli_nodeget(struct ast_cli_entry *e,
 	return res2cli(TLB_do_nodeget(a->fd,a->argc,a->argv));
 }
 
-static struct ast_cli_entry rpt_cli[] = {
+static struct ast_cli_entry TLB_cli[] = {
 	AST_CLI_DEFINE(handle_cli_debug,"Enable app_rpt debugging"),
 	AST_CLI_DEFINE(handle_cli_nodedump,"Dump entire tlb node list"),
 	AST_CLI_DEFINE(handle_cli_nodeget,"Look up tlb node entry"),
@@ -1983,8 +1989,8 @@ static void *TLB_reader(void *data)
 							fr.datalen = 0;
 							fr.samples = 0;
 							fr.frametype = AST_FRAME_CONTROL;
-							fr.subclass = AST_CONTROL_ANSWER;
-							fr.data =  0;
+							fr.subclass.integer = AST_CONTROL_ANSWER;
+							fr.data.ptr =  0;
 							fr.src = type;
 							fr.offset = 0;
 							fr.mallocd=0;
@@ -2091,8 +2097,8 @@ static void *TLB_reader(void *data)
 						fr.datalen = 0;
 						fr.samples = 0;
 						fr.frametype = AST_FRAME_CONTROL;
-						fr.subclass = AST_CONTROL_ANSWER;
-						fr.data =  0;
+						fr.subclass.integer = AST_CONTROL_ANSWER;
+						fr.data.ptr =  0;
 						fr.src = type;
 						fr.offset = 0;
 						fr.mallocd=0;
@@ -2149,10 +2155,10 @@ static void *TLB_reader(void *data)
 							/* Send DTMF (in dchar) to Asterisk */
 							memset(&fr,0,sizeof(fr));
 							fr.datalen = strlen(dstr) + 1;
-							fr.data = dstr;
+							fr.data.ptr = dstr;
 							fr.samples = 0;
 							fr.frametype = AST_FRAME_TEXT;
-							fr.subclass = 0;
+							fr.subclass.integer = 0;
 							fr.src = type;
 							fr.offset = 0;
 							fr.mallocd=0;
@@ -2406,10 +2412,6 @@ int load_module(void)
 {
 	struct ast_config *cfg = NULL;
         char *ctg = NULL;
-
-#ifdef  NEW_ASTERISK
-        struct ast_flags zeroflag = {0};
-#endif
 
 #ifdef  NEW_ASTERISK
         if (!(cfg = ast_config_load(config,zeroflag))) {

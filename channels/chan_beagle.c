@@ -24,6 +24,8 @@
  *
  * \author Jim Dixon  <jim@lambdatel.com>
  *
+ * \note Stacy Olivas, KG7QIN, <kg7qin@arrl.net> ported it to Asterisk 1.8
+ *
  * \ingroup channel_drivers
  */
 
@@ -890,7 +892,8 @@ static struct ast_frame *beagle_read(struct ast_channel *c)
 
 	/* XXX can be simplified returning &ast_null_frame */
 	/* prepare a NULL frame in case we don't have enough data to return */
-	bzero(f, sizeof(struct ast_frame));
+	//bzero(f, sizeof(struct ast_frame));
+	memset(f, 0, sizeof(struct ast_frame));
 	f->frametype = AST_FRAME_NULL;
 	f->src = beagle_tech.type;
 
@@ -943,8 +946,8 @@ static struct ast_frame *beagle_read(struct ast_channel *c)
 			if (n > (FRAME_SIZE * 2)) n = FRAME_SIZE * 2;
 			sp = (short *) (beagle_write_buf);
 			sp0 = sp1 = NULL;
-			if (f0) sp0 = (short *) f0->data;
-			if (f1) sp1 = (short *) f1->data;
+			if (f0) sp0 = (short *) &f0->data;
+			if (f1) sp1 = (short *) &f1->data;
 			for(i = 0; i < (n / 2); i++)
 			{
 				if (f1) *sp++ = *sp1++;
@@ -1039,14 +1042,14 @@ static struct ast_frame *beagle_read(struct ast_channel *c)
 		if (o->lastrx && (!o->rxkeyed))
 		{
 			o->lastrx = 0;
-			wf.subclass = AST_CONTROL_RADIO_UNKEY;
+			wf.subclass.integer = AST_CONTROL_RADIO_UNKEY;
 			ast_queue_frame(o->owner, &wf);
 			if (o->debuglevel) ast_verbose("Channel %s RX UNKEY\n",o->name);
 		}
 		else if ((!o->lastrx) && (o->rxkeyed))
 		{
 			o->lastrx = 1;
-			wf.subclass = AST_CONTROL_RADIO_KEY;
+			wf.subclass.integer = AST_CONTROL_RADIO_KEY;
 			ast_queue_frame(o->owner, &wf);
 			if (o->debuglevel) ast_verbose("Channel %s RX KEY\n",o->name);
 		}
@@ -1093,11 +1096,11 @@ static struct ast_frame *beagle_read(struct ast_channel *c)
 				{
 					sprintf(buf1,"GPIO%d %d",i,(gv & (gpios_mask[i])) ? 1 : 0);
 					memset(&fr,0,sizeof(fr));
-					fr.data =  buf1;
+					fr.data.ptr =  buf1;
 					fr.datalen = strlen(buf1) + 1;
 					fr.samples = 0;
 					fr.frametype = AST_FRAME_TEXT;
-					fr.subclass = 0;
+					fr.subclass.integer = 0;
 					fr.src = "chan_beagle";
 					fr.offset = 0;
 					fr.mallocd=0;
@@ -1114,10 +1117,10 @@ static struct ast_frame *beagle_read(struct ast_channel *c)
 			continue;
 	        /* ok we can build and deliver the frame to the caller */
 	        f->frametype = AST_FRAME_VOICE;
-	        f->subclass = AST_FORMAT_SLINEAR;
+	        f->subclass.integer = AST_FORMAT_SLINEAR;
 	        f->samples = FRAME_SIZE;
 	        f->datalen = FRAME_SIZE * 2;
-	        f->data = o->beagle_read_frame_buf + AST_FRIENDLY_OFFSET;
+	        f->data.ptr = o->beagle_read_frame_buf + AST_FRIENDLY_OFFSET;
 //		if (!o->rxkeyed) memset(f->data,0,f->datalen);
 		if (o->usedtmf && o->dsp)
 		{
@@ -1125,7 +1128,7 @@ static struct ast_frame *beagle_read(struct ast_channel *c)
 		    if ((f1->frametype == AST_FRAME_DTMF_END) ||
 		      (f1->frametype == AST_FRAME_DTMF_BEGIN))
 		    {
-			if ((f1->subclass == 'm') || (f1->subclass == 'u')) continue;
+			if ((f1->subclass.integer == 'm') || (f1->subclass.integer == 'u')) continue;
 			if (f1->frametype == AST_FRAME_DTMF_END)
 				ast_log(LOG_NOTICE,"Got DTMF char %c\n",f1->subclass);
 			ast_queue_frame(o->owner,f1);
@@ -1135,7 +1138,7 @@ static struct ast_frame *beagle_read(struct ast_channel *c)
 	        if (o->rxvoiceadj > 1.0) {  /* scale and clip values */
 	                int i, x;
 			float f1;
-	                int16_t *p = (int16_t *) f->data;
+	                int16_t *p = (int16_t *) &f->data;
 
 	                for (i = 0; i < f->samples; i++) {
 				f1 = (float)p[i] * o->rxvoiceadj;
@@ -1151,7 +1154,7 @@ static struct ast_frame *beagle_read(struct ast_channel *c)
 		{
 			int i;
 			int32_t accum;
-	                int16_t *p = (int16_t *) f->data;
+	                int16_t *p = (int16_t *) &f->data;
 
 			for(i = 0; i < f->samples; i++)
 			{
@@ -1312,11 +1315,10 @@ static struct ast_channel *beagle_new(struct chan_beagle_pvt *o, char *ext, char
 		ast_string_field_set(c, language, o->language);
 	/* Don't use ast_set_callerid() here because it will
 	 * generate a needless NewCallerID event */
-	c->cid.cid_num = ast_strdup(o->cid_num);
-	c->cid.cid_ani = ast_strdup(o->cid_num);
-	c->cid.cid_name = ast_strdup(o->cid_name);
+	c->caller.id.number.str = ast_strdup(o->cid_num);
+	c->caller.id.name.str = ast_strdup(o->cid_name);
 	if (!ast_strlen_zero(ext))
-		c->cid.cid_dnid = ast_strdup(ext);
+		c->caller.id.number.presentation = ast_strdup(ext);
 
 	o->owner = c;
 	ast_module_ref(ast_module_info->self);
@@ -1902,7 +1904,7 @@ static char *handle_Chan_beagle_key(struct ast_cli_entry *e,
         case CLI_GENERATE:
                 return NULL;
 	}
-	return res2cli(Chan_beagle_key(a->fd,a->argc,a->argv));
+	return res2cli(beagle_key(a->fd,a->argc,a->argv));
 }
 
 static char *handle_Chan_beagle_unkey(struct ast_cli_entry *e,
@@ -1916,7 +1918,7 @@ static char *handle_Chan_beagle_unkey(struct ast_cli_entry *e,
         case CLI_GENERATE:
                 return NULL;
 	}
-	return res2cli(Chan_beagle_unkey(a->fd,a->argc,a->argv));
+	return res2cli(beagle_unkey(a->fd,a->argc,a->argv));
 }
 
 static char *handle_beagle_tune(struct ast_cli_entry *e,
@@ -1976,8 +1978,8 @@ static char *handle_beagle_active(struct ast_cli_entry *e,
 }
 
 static struct ast_cli_entry cli_beagle[] = {
-	AST_CLI_DEFINE(handle_beagle_key,"Simulate Rx Signal Present"),
-	AST_CLI_DEFINE(handle_beagle_unkey,"Simulate Rx Signal Loss"),
+	AST_CLI_DEFINE(handle_Chan_beagle_key,"Simulate Rx Signal Present"),
+	AST_CLI_DEFINE(handle_Chan_beagle_unkey,"Simulate Rx Signal Loss"),
 	AST_CLI_DEFINE(handle_beagle_tune,"beagle Tune"),
 	AST_CLI_DEFINE(handle_beagle_debug,"beagle Debug On"),
 	AST_CLI_DEFINE(handle_beagle_debug_off,"beagle Debug Off"),

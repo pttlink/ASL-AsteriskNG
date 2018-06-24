@@ -38,6 +38,9 @@ Updates:
 
 ---------------------------------------------------------------------------------------------------------------------------------
 
+[![pipeline status](http://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8/badges/master/pipeline.svg)](http://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8/commits/master)   [![coverage report](http://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8/badges/master/coverage.svg)](http://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8/commits/master)
+
+
 Please use the following instructions to build and install this port on a Debian 9.4 system.  Instructions for building a Docker image are also included.
 
 # Compiling

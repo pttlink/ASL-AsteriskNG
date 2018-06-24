@@ -1,13 +1,13 @@
 # AllStarLink 1.8 Test Port
 #
-# VERSION 0.0.13
+# VERSION 0.0.16
 #
 FROM debian:stretch
 
 MAINTAINER Stacy Olivas <kg7qin@arrl.net>
 
 # What command to run when container is started
-ENTRYPOINT ["/usr/sbin/asterisk"]
+ENTRYPOINT ["/asl_start.sh"]
 
 # Expose SIP and IAX2 Ports
 EXPOSE 4060 4569
@@ -23,14 +23,15 @@ RUN apt-get update \
 
 RUN mkdir /usr/work \
 	&& cd /usr/work \
-	&& git clone git@git.allstarlink.org:KG7QIN/AllStarLink-Asterisk-1.8.git \
+	&& git clone https://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8.git \
     	&& wget https://github.com/KG7QIN/AllStarLink/raw/master/dahdi/dahdi-linux-complete-2.10.2%2B2.10.2.tar.gz 
+
 # Run Asterisk Prereq install script
 RUN mkdir /etc/vpb \
     	&& cd /usr/work/AllStarLink-Asterisk-1.8 \
     	&& chmod a+x /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq \
     	&& /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq install \
-    	&& apt-get install -y libssl1.0-dev
+    	&& apt-get install -y libssl1.0-dev doxygen
 
 # Extract, build and load DAHDI modules
 RUN cd /usr/work/ \
@@ -68,6 +69,12 @@ RUN cd /usr/work/AllStarLink-Asterisk-1.8/ \
         && menuselect/menuselect --enable app_rpt --enable chan_beagle --enable chan_tlb --enable chan_usrp --enable chan_rtpdir --enable chan_usbradio \
            --enable chan_simpleusb --enable chan_echolink --enable app_gps --enable chan_voter menuselect.makeopts || : \
         && make \ 
-	&& make install
+	&& make install \
+	&& make samples \
+	&& make progdocs
 
+COPY ./asl_start.sh /
+RUN chmod a+x /asl_start.sh
+RUN cd cd /usr/work/AllStarLink-Asterisk-1.8 \
+	&& ./post_ast_setup.sh
 

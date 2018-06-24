@@ -85,3 +85,4 @@ RUN chmod a+x /asl_start.sh
 RUN cd /usr/work/AllStarLink-Asterisk-1.8 \
 	&& ./post_ast_setup.sh
 
+

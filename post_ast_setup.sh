@@ -1,11 +1,12 @@
 #!/bin/sh
 #
 # post_ast_setup.sh
-# Do the post install of files needed for AllStarLink usage
+# Do post install items for AllStarLink usage
 # By: Stacy Olivas KG7QIN - 6/23/18
 #
 # Version 0.01
 #
+cd cd /usr/work/AllStarLink-Asterisk-1.8/
 cp ./allstar/rc.updatenodelist /etc/asterisk/
 cp -R ./allstar/configs/* /etc/asterisk/
 cp ./allstar/id.gsm /etc/asterisk/

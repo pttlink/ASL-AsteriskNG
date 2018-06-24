@@ -131,7 +131,7 @@ To run:
 # docker run -v /dev/dahdi:/dev/dahdi -v /dev/dsp:/dev/dsp  --privileged --net=host -d --name ASL -i -t asl1.8-test3
 </pre>
 
-Note:  You will need to have successfully built the DAHDI kernel modules with the AllStarLink patches and have this module loaded into your host OS's kernel.  You will also need to have the required config files in /etc/asterisk, sound files in /var/lib/asterisk/sound, and a log file directory of /var/log/asterisk for this to run.
+Note:  You will need to have successfully built the DAHDI kernel modules with the AllStarLink patches and have this module loaded into your host OS's kernel. 
 
 Make sure that you connect to the container's shell and configure the node's rpt.conf and other required files under /etc/asterisk.  Example files are included.
 

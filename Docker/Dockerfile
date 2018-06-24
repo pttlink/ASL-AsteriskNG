@@ -17,24 +17,28 @@ RUN echo "deb-src http://mirrors.kernel.org/debian/ stretch main" >> /etc/apt/so
     	&& echo "deb-src http://mirrors.kernel.org/debian/ stretch-updates main" >> /etc/apt/sources.list \
     	&& echo "deb-src http://security.debian.org/debian-security stretch/updates main" >> /etc/apt/sources.list
 
-RUN apt-get update \
+RUN set -x \
+	&& apt-get update \
     	&& apt-get install -y git build-essential linux-headers-$(uname -r) linux-source-4.9 libss7-dev wget apt-utils \
          dahdi-source dahdi-linux aptitude tcsh gawk libusb-dev
 
-RUN mkdir /usr/work \
+RUN set -x \
+	&& mkdir /usr/work \
 	&& cd /usr/work \
 	&& git clone https://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8.git \
     	&& wget https://github.com/KG7QIN/AllStarLink/raw/master/dahdi/dahdi-linux-complete-2.10.2%2B2.10.2.tar.gz 
 
 # Run Asterisk Prereq install script
-RUN mkdir /etc/vpb \
+RUN set -x \
+	&& mkdir /etc/vpb \
     	&& cd /usr/work/AllStarLink-Asterisk-1.8 \
     	&& chmod a+x /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq \
     	&& /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq install \
     	&& apt-get install -y libssl1.0-dev doxygen
 
 # Extract, build and load DAHDI modules
-RUN cd /usr/work/ \
+RUN set -x \
+	&& cd /usr/work/ \
     	&& tar -zxf dahdi-linux-complete-2.10.2+2.10.2.tar.gz \
     	&& cd dahdi-linux-complete-2.10.2+2.10.2/linux/drivers/dahdi/voicebus/ \ 
 	&& echo "--- GpakApi.c.orig	2018-06-09 18:54:14.205144479 -0700\n" \
@@ -48,10 +52,12 @@ RUN cd /usr/work/ \
 "         pDest[i] = (short int) MsgBuffer[2 + i]; \n"  > patch1 \
 	&& patch -ful GpakApi.c patch1
 
-RUN cd /usr/work/dahdi-linux-complete-2.10.2+2.10.2/tools/xpp/ \
+RUN set -x \
+	&& cd /usr/work/dahdi-linux-complete-2.10.2+2.10.2/tools/xpp/ \
 	&& sed -i -e 's/inline /extern inline /g' echo_loader.c
 	
-RUN cd /usr/work/dahdi-linux-complete-2.10.2+2.10.2/ \
+RUN set -x \
+	&& cd /usr/work/dahdi-linux-complete-2.10.2+2.10.2/ \
 	&& sed -i -e 's/configure /configure CFLAGS=-Wno-error /g' Makefile \
 	&& cd tools/xpp \
 	&& sed -i -e 's/-I. -Ixtalk -Wall -Werror/-I. -Ixtalk -Wno-error/g' Makefile \
@@ -62,7 +68,8 @@ RUN cd /usr/work/dahdi-linux-complete-2.10.2+2.10.2/ \
     	&& make config 
 
 # Build Asterisk 1.8 port
-RUN cd /usr/work/AllStarLink-Asterisk-1.8/ \
+RUN set -x \
+	&& cd /usr/work/AllStarLink-Asterisk-1.8/ \
     	&& make distclean \
     	&& ./configure LDFLAGS="-zmuldefs -lasound" CFLAGS="-Wno-unused -Wno-all -Wno-int-conversion -g" \
         && make menuselect.makeopts || : \
@@ -75,6 +82,6 @@ RUN cd /usr/work/AllStarLink-Asterisk-1.8/ \
 
 COPY ./asl_start.sh /
 RUN chmod a+x /asl_start.sh
-RUN cd cd /usr/work/AllStarLink-Asterisk-1.8 \
+RUN cd /usr/work/AllStarLink-Asterisk-1.8 \
 	&& ./post_ast_setup.sh
 

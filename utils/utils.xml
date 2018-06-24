@@ -45,4 +45,13 @@
 	<defaultenabled>no</defaultenabled>
 	<support_level>extended</support_level>
   </member>
+  <member name="radio-tune-menu">
+  	<defaultenabled>yes</defaultenabled>
+	<support_level>core</support_level>
+  </member>
+  <member name="simpleusb-tune-menu">
+        <defaultenabled>yes</defaultenabled>
+        <support_level>core</support_level>
+  </member>
+
 </category>

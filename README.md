@@ -33,9 +33,8 @@ Updates:
            The Dockerfile and compile info below have been updated to build all the modules now with debugging info enabled.
 
 06/23/18 - radio-tune-menu and simpleusb-tune-menu added in to build process.  Building and installing will now include examples, program docs, and ASL sample config files.  setup.sh created for
-           install on a Debian 9.4.0 system.  Dockerfile updated with startup that will run rc.updatenodes and start asterisk when container is started.
+           install on a Debian 9.4.0 system.  Dockerfile updated with startup file that that will run rc.updatenodes and asterisk when a container is started.
 </pre>
-
 
 ---------------------------------------------------------------------------------------------------------------------------------
 
@@ -120,7 +119,6 @@ If you prefer to do all the steps yourself:
 # Using Docker to run
 A Dockerfile has been created that will allow you to build this code as it currently is and run it.  
 The base image is Debian Stretch (9.4.0).
-There are no AllStarLink config files included in /etc/asterisk.  You will need to either import them into your Docker build yourself or share them from the host OS using -v
 
 To build:<br/>
 Grab the Dockerfile from the Docker directory and place in directory by itself

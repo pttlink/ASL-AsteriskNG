@@ -7,7 +7,8 @@
 # Version 0.01
 #
 
-/bin/cp /usr/work/AllStarLink-Asterisk-1.8/allstar/rc.updatenodelist /etc/asterisk/
+set -x
+/bin/cp /usr/work/AllStarLink-Asterisk-1.8/allstar/allstar/rc.updatenodelist /etc/asterisk/
 /bin/cp -R /usr/work/AllStarLink-Asterisk-1.8/allstar/configs/* /etc/asterisk/
 /bin/cp /usr/work/AllStarLink-Asterisk-1.8/allstar/id.gsm /etc/asterisk/
 /bin/tar -zxf /usr/work/AllStarLink-Asterisk-1.8/allstar/sounds/ASL-RptSounds.tgz /var/lib/asterisk/sounds/

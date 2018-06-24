@@ -6,7 +6,7 @@
 #
 # Version 0.01
 #
-cd /usr/work/AllStarLink-Asterisk-1.8/
+cd /usr/work/AllStarLink-Asterisk-1.8
 cp ./allstar/rc.updatenodelist /etc/asterisk/
 cp -R ./allstar/configs/* /etc/asterisk/
 cp ./allstar/id.gsm /etc/asterisk/

@@ -51,7 +51,7 @@ This code has been successfully compiled on both Debian Stretch (9.4.0) and Ubun
 
 To automatically build and install the port and all associated files:
 <pre>
-# wget https://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8/blob/master/setup.sh
+# https://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8/raw/master/setup.sh
 # sh setup.sh 
 </pre>
 

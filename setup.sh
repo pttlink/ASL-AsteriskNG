@@ -105,15 +105,15 @@ echo >&2 "*** Adding sources, updating, and installing prerequisites..."
 case "$DIST" in
 	Debian|debian)
 		# Ensure that the necessary repos for Debian sources are added
-		echo "deb-src http://mirrors.kernel.org/debian/ $CODENAME main" > /etc/apt/sources.list.d/asl-distro-sources
-		echo "deb-src http://mirrors.kernel.org/debian/ ${CODENAME}-updates main" >> /etc/apt/sources.list.d/asl-distro-sources
-		echo "deb-src http://security.debian.org/debian-security ${CODENAME}/updates main" >> /etc/apt/sources.list.d/asl-distro-sources
+		echo "deb-src http://mirrors.kernel.org/debian/ $CODENAME main" > /etc/apt/sources.list.d/asl-distro-sources.list
+		echo "deb-src http://mirrors.kernel.org/debian/ ${CODENAME}-updates main" >> /etc/apt/sources.list.d/asl-distro-sources.list
+		echo "deb-src http://security.debian.org/debian-security ${CODENAME}/updates main" >> /etc/apt/sources.list.d/asl-distro-sources.list
 		;;
 	Ubuntu|ubuntu)
 		# Ensure that the necessary report for Ubuntu sources are added
-		echo "deb-src http://us.archive.ubuntu.com/ubuntu $CODENAME main restricted" > /etc/apt/sources.list.d/asl-distro-sources
-		echo "deb-src http://us.archive.ubuntu.com/ubuntu ${CODENAME}-updates main restricted" >> /etc/apt/sources.list.d/asl-distro-sources
-		echo "deb-src http://security.ubuntu.com/ubuntu ${CODENAME}-security main restricted" >> /etc/apt/sources.list.d/asl-distro-sources
+		echo "deb-src http://us.archive.ubuntu.com/ubuntu $CODENAME main restricted" > /etc/apt/sources.list.d/asl-distro-sources.list
+		echo "deb-src http://us.archive.ubuntu.com/ubuntu ${CODENAME}-updates main restricted" >> /etc/apt/sources.list.d/asl-distro-sources.list
+		echo "deb-src http://security.ubuntu.com/ubuntu ${CODENAME}-security main restricted" >> /etc/apt/sources.list.d/asl-distro-sources.list
 		;;
 	*)
 		echo >&2 "Unknown distro.  Aborting."

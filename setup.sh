@@ -5,20 +5,28 @@
 # the AllStarLink Asterisk 1.8 port on a system
 # By Stacy Olivas KG7QIN - 6/23/18
 #
-# Version 0.02
+# Version 0.03
 
 # Revision history
 # v0.01 - Stacy Olivas KG7QIN - 6/23/18
 #         * Initial release
 # v0.02 - Stacy Olivas KG7QIN - 07/03/18
 #         * Added distro checks for debian based installs and distro based dependencies
+# v0.03 - Stacy Olivas KG7QIN - 07/06/18
+#         * Added in flag to use Asterisk prereq_install or apt-get build-dep for installing
+#           the dependencies needed for Asterisk
 #
 
 # Show all the commands as they are executed
 #set -e
 
 MYNAME="AllStarLink-Asterisk 1.8 Beta v0.0.02-20180703"
+
+#change this to false to turn off adding debugging symbols to asterisk
 DEBUG=true
+
+#change this to false to use the asterisk pre-requisite install script instead
+USE_APT=true
 
 #query system information
 OS=`uname -s`
@@ -92,7 +100,7 @@ if [ "$CODENAME" = "" ] ; then
         echo >&2 " "
 fi
 
-if confirm "Do you want to proceed wtih attempting to setup $MYNAME [y/N]?"; then
+if confirm "Do you want to proceed with attempting to setup $MYNAME [y/N]?"; then
 	echo >&2 " "
 	echo >&2 "Continuting with setup...."
 else
@@ -131,12 +139,20 @@ cd /usr/work
 git clone https://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8.git 
 wget https://github.com/KG7QIN/AllStarLink/raw/master/dahdi/dahdi-linux-complete-2.10.2%2B2.10.2.tar.gz
 
-echo >&2 "*** Running Asterisk prereq_install script..."
-# Run the Asterisk prereq install script
-mkdir /etc/vpb 
-cd /usr/work/AllStarLink-Asterisk-1.8 
-chmod a+x /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq 
-sh /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq install 
+mkdir /etc/vpb
+chmod a+x /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq
+if $USE_APT; then
+        echo >&2 "*** Running apt-get build-dep asterisk..."
+	apt-get build-dep asterisk
+else
+
+	echo >&2 "*** Running Asterisk prereq_install script..."
+	# Run the Asterisk prereq install script
+	cd /usr/work/AllStarLink-Asterisk-1.8 
+	sh /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq install 
+fi
+
+echo ?&2 "*** Installing unpackaged modules..."
 sh /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq install-unpackaged
 
 # Fix some dependencies that may have changes due to the prereq script running
@@ -147,7 +163,7 @@ fi
 
 echo >&2 "Fixing $LIBSSL dependency..."
 
-apt-get install -y $LIBSSL
+apt-get install -y --force-yes --reinstall $LIBSSL
 
 echo >&2 "*** Building and installing DAHDI modules..."
 # Extract, build and load the DAHDI modules

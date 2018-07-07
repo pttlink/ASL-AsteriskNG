@@ -202,7 +202,7 @@ if $DEBUG; then
 	echo >&2 " with debugging..."
 	L_DF="-g"
 else
-	echo >&2 " with optimizations..."
+	echo >&2 "..."
 	L_DF="-O2"
 fi
 

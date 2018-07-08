@@ -203,7 +203,7 @@ if $DEBUG; then
 	L_DF="-g"
 else
 	echo >&2 "..."
-	L_DF="-O2"
+	L_DF=" "
 fi
 
 # Build Asterisk 1.8 with ASL port
@@ -222,7 +222,7 @@ make progdocs
 
 echo >&2 "*** Running post-setup script..."
 
-cd /usr/work/AllStarLink-Asterisk1.8
+cd /usr/work/AllStarLink-Asterisk-1.8
 sh ./post_ast_setup.sh
 
 

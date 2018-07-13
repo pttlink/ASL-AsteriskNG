@@ -593,7 +593,7 @@ VTIME mastergps_time = {0,0};
 #define ast_malloc malloc
 #endif
 
-static struct ast_channel *voter_request(const char *type, int format, void *data, int *cause);
+static struct ast_channel *voter_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
 static int voter_call(struct ast_channel *ast, char *dest, int timeout);
 static int voter_hangup(struct ast_channel *ast);
 static struct ast_frame *voter_read(struct ast_channel *ast);
@@ -2199,13 +2199,14 @@ struct timeval tv;
 	pthread_exit(NULL);
 }
 
-static struct ast_channel *voter_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *voter_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	int oldformat,i,j;
 	struct voter_pvt *p,*p1;
 	struct ast_channel *tmp = NULL;
 	char *val,*cp,*cp1,*cp2,*strs[MAXTHRESHOLDS],*ctg;
 	struct ast_config *cfg = NULL;
+	char *nnum = ast_strdupa(data);
 	pthread_attr_t attr;
 	
 	oldformat = format;
@@ -2221,7 +2222,7 @@ static struct ast_channel *voter_request(const char *type, int format, void *dat
 		return NULL;
 	}
 	memset(p, 0, sizeof(struct voter_pvt));
-	p->nodenum = strtoul((char *)data,NULL,0);
+	p->nodenum = strtoul(nnum,NULL,0);
 	ast_mutex_init(&p->txqlock);
 	ast_mutex_init(&p->pagerqlock);
 	ast_mutex_init(&p->xmit_lock);

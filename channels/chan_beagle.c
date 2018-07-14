@@ -388,7 +388,7 @@ static void tune_write(struct chan_beagle_pvt *o);
 
 static char *beagle_active = NULL;	 /* the active device */
 
-static struct ast_channel *beagle_request(const char *type, int format, void *data, int *cause);
+static struct ast_channel *beagle_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
 static int beagle_digit_begin(struct ast_channel *c, char digit);
 static int beagle_digit_end(struct ast_channel *c, char digit, unsigned int duration);
 static int beagle_text(struct ast_channel *c, const char *text);
@@ -1336,7 +1336,7 @@ static struct ast_channel *beagle_new(struct chan_beagle_pvt *o, char *ext, char
 }
 /*
 */
-static struct ast_channel *beagle_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *beagle_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	struct ast_channel *c;
 	struct chan_beagle_pvt *o = find_pvt(data);

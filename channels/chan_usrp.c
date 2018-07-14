@@ -121,7 +121,7 @@ struct usrp_pvt {
 	int unkey_owed;
 };
 
-static struct ast_channel *usrp_request(const char *type, int format, void *data, int *cause);
+static struct ast_channel *usrp_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
 static int usrp_call(struct ast_channel *ast, char *dest, int timeout);
 static int usrp_hangup(struct ast_channel *ast);
 static struct ast_frame *usrp_xread(struct ast_channel *ast);
@@ -635,7 +635,7 @@ static struct ast_channel *usrp_new(struct usrp_pvt *i, int state)
 }
 
 
-static struct ast_channel *usrp_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *usrp_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	int oldformat;
 	struct usrp_pvt *p;

@@ -767,8 +767,7 @@ static char *usbradio_active;	 /* the active device */
 
 static int setformat(struct chan_usbradio_pvt *o, int mode);
 
-static struct ast_channel *usbradio_request(const char *type, int format, void *data
-, int *cause);
+static struct ast_channel *usbradio_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
 static int usbradio_digit_begin(struct ast_channel *c, char digit);
 static int usbradio_digit_end(struct ast_channel *c, char digit, unsigned int duration);
 static int usbradio_text(struct ast_channel *c, const char *text);
@@ -3277,19 +3276,20 @@ static struct ast_channel *usbradio_new(struct chan_usbradio_pvt *o, char *ext, 
 }
 /*
 */
-static struct ast_channel *usbradio_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *usbradio_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	struct ast_channel *c;
-	struct chan_usbradio_pvt *o = find_desc(data);
+	char *ndata = ast_strdup(data);
+	struct chan_usbradio_pvt *o = find_desc(ndata);
 
 	TRACEO(1,("usbradio_request()\n"));
 
 	if (0)
 	{
-		ast_log(LOG_WARNING, "usbradio_request type <%s> data 0x%p <%s>\n", type, data, (char *) data);
+		ast_log(LOG_WARNING, "usbradio_request type <%s> data 0x%p <%s>\n", type, ndata, ndata);
 	}
 	if (o == NULL) {
-		ast_log(LOG_NOTICE, "Device %s not found\n", (char *) data);
+		ast_log(LOG_NOTICE, "Device %s not found\n", ndata);
 		/* XXX we could default to 'dsp' perhaps ? */
 		return NULL;
 	}

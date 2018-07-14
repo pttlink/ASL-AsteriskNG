@@ -659,8 +659,7 @@ static char *simpleusb_active;	 /* the active device */
 
 static int setformat(struct chan_simpleusb_pvt *o, int mode);
 
-static struct ast_channel *simpleusb_request(const char *type, int format, void *data
-, int *cause);
+static struct ast_channel *simpleusb_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
 static int simpleusb_digit_begin(struct ast_channel *c, char digit);
 static int simpleusb_digit_end(struct ast_channel *c, char digit, unsigned int duration);
 static int simpleusb_text(struct ast_channel *c, const char *text);
@@ -3100,17 +3099,17 @@ static struct ast_channel *simpleusb_new(struct chan_simpleusb_pvt *o, char *ext
 }
 /*
 */
-static struct ast_channel *simpleusb_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *simpleusb_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	struct ast_channel *c;
-	struct chan_simpleusb_pvt *o = _find_desc(data);
-
+	char *ndata = ast_strdup(data);
+	struct chan_simpleusb_pvt *o = _find_desc(ndata);
 	if (0)
 	{
-		ast_log(LOG_WARNING, "simpleusb_request type <%s> data 0x%p <%s>\n", type, data, (char *) data);
+		ast_log(LOG_WARNING, "simpleusb_request type <%s> data 0x%p <%s>\n", type, ndata, (char *) data);
 	}
 	if (o == NULL) {
-		ast_log(LOG_NOTICE, "Device %s not found\n", (char *) data);
+		ast_log(LOG_NOTICE, "Device %s not found\n", ndata);
 		/* XXX we could default to 'dsp' perhaps ? */
 		return NULL;
 	}

@@ -113,7 +113,7 @@ struct rtpdir_pvt {
 	struct ast_module_user *u;		/*! for holding a reference to this module */
 };
 
-static struct ast_channel *rtpdir_request(const char *type, int format, void *data, int *cause);
+static struct ast_channel *rtpdir_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
 static int rtpdir_call(struct ast_channel *ast, char *dest, int timeout);
 static int rtpdir_hangup(struct ast_channel *ast);
 static struct ast_frame *rtpdir_xread(struct ast_channel *ast);
@@ -525,7 +525,7 @@ static struct ast_channel *rtpdir_new(struct rtpdir_pvt *i, int state)
 }
 
 
-static struct ast_channel *rtpdir_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *rtpdir_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	int oldformat;
 	struct rtpdir_pvt *p;

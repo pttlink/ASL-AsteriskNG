@@ -339,7 +339,7 @@ static char *config = "tlb.conf";
 #define ast_malloc malloc
 #endif
 
-static struct ast_channel *TLB_request(const char *type, int format, void *data, int *cause);
+static struct ast_channel *TLB_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
 static int TLB_call(struct ast_channel *ast, char *dest, int timeout);
 static int TLB_hangup(struct ast_channel *ast);
 static struct ast_frame *TLB_xread(struct ast_channel *ast);
@@ -1483,7 +1483,7 @@ static struct ast_channel *TLB_new(struct TLB_pvt *i, int state, unsigned int no
 }
 
 
-static struct ast_channel *TLB_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *TLB_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	int oldformat,nodenum,n;
 	struct TLB_pvt *p;

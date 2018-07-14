@@ -397,7 +397,7 @@ static int el_login_sleeptime = 0;
 static char *config = "echolink.conf";
 
 
-static struct ast_channel *el_request(const char *type, int format, void *data, int *cause);
+static struct ast_channel *el_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
 static int el_call(struct ast_channel *ast, char *dest, int timeout);
 static int el_hangup(struct ast_channel *ast);
 static struct ast_frame *el_xread(struct ast_channel *ast);
@@ -1762,7 +1762,7 @@ static struct ast_channel *el_new(struct el_pvt *i, int state, unsigned int node
 }
 
 
-static struct ast_channel *el_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *el_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	int oldformat,nodenum;
 	struct el_pvt *p;

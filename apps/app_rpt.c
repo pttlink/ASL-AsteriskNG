@@ -18,17 +18,44 @@
  * This program is free software, distributed under the terms of
  * the GNU General Public License Version 2. See the LICENSE file
  * at the top of the source tree.
+ *
+ * -------------------------------------
+ * Notes on app_rpt.c
+ * -------------------------------------
+ * By: Stacy Olivas, KG7QIN <kg7qin@arrl.net> - 20 March 2017
+ * This application, the heart of the AllStar network and using asterisk as a repeater,
+ * is largely undocumented code.  It uses a multi-threaded approach to fulfilling its functions
+ * and can be quite a chore to follow for debugging.
+ *
+ * The entry point in the code , rpt_exec, is called by the main pbx call handing routine.
+ * The code handles the initial setup and then passes the call/connection off to
+ * the threaded routines, which do the actual work <behind the scenes> of keeping multiple
+ * connections open, passing telemetry, etc.  rpt_master handles the management of the threaded
+ * routines used (rpt_master_thread is the p_thread structure).
+ *
+ * Having gone through this code during an attempt at porting to this Asterisk 1.8, I recommend
+ * that anyone who is serious about trying to understand this code, to liberally sprinkle
+ * debugging statements throughout it and run it.  The program flow may surprise you.
+ *
+ * Note that due changes in later versions of asterisk, you cannot simply drop this module into
+ * the build tree and expect it to work.  There has been some significant renaming of
+ * key variables and structures between 1.4 and later versions of Asterisk.  Additionally,
+ * the changes to how the pbx module passes calls off to applications has changed as well,
+ * which causes app_rpt to fail without a modification of the base Asterisk code in these
+ * later versions.
+ * --------------------------------------
  */
 /*! \file
  *
  * \brief Radio Repeater / Remote Base program 
- *  version 0.327 11/24/2016
+ *  version 0.399 07/26/2018
  * 
  * \author Jim Dixon, WB6NIL <jim@lambdatel.com>
  *
  * \note Serious contributions by Steve RoDgers, WA6ZFT <hwstar@rodgers.sdcoxmail.com>
- * \note Steven Henke, W9SH, <w9sh@arrl.net> added a few features here and there.
- * \note Stacy Olivas, KG7QIN, <kg7qin@arrl.net> ported it to Asterisk 1.8
+ * \note contributions by Steven Henke, W9SH, <w9sh@arrl.net> added a few features here and there.
+ * \note contributions by Steve Zingman, N4IRS
+ * \note contributions by Stacy Olivas, KG7QIN, <kg7qin@arrl.net> ported it to Asterisk 1.8
  *
  * \note See http://ohnosec.org/drupal/
  *
@@ -264,6 +291,10 @@
 
  #include "asterisk.h"
 
+/*
+ * Defines for the "old" way to manage module hooks into Asterisk
+*/
+
 #ifdef OLD_ASTERISK
 #define ast_free free
 #define ast_malloc malloc
@@ -276,7 +307,13 @@
 #define	START_DELAY 2
 #endif
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
+/*
+ * Please change this revision number when you make a edit
+ * use the simple format YYMMDD (better for sort)
+*/
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180213 $")
+// ASTERISK_FILE_VERSION(__FILE__, "$"ASTERISK_VERSION" $")
 
 #include <signal.h>
 #include <stddef.h>
@@ -689,7 +726,7 @@ int ast_playtones_start(struct ast_channel *chan, int vol, const char* tonelist,
 /*! Stop the tones from playing */
 void ast_playtones_stop(struct ast_channel *chan);
 
-static  char *tdesc = "Radio Repeater / Remote Base  version 0.327 11/24/2016";
+static  char *tdesc = "Radio Repeater / Remote Base  version 0.399 07/26/2018";
 
 static char *app = "Rpt";
 
@@ -792,6 +829,10 @@ static char *remote_rig_rtx150="rtx150";
 static char *remote_rig_rtx450="rtx450";
 static char *remote_rig_ppp16="ppp16";	  		// parallel port programmable 16 channels
 
+/*
+ * DTMF Tones - frequency pairs used to generate them along with the required timings
+ */
+
 static char* dtmf_tones[] = {
 	"!941+1336/200,!0/200",	/* 0 */
 	"!697+1209/200,!0/200",	/* 1 */
@@ -871,8 +912,14 @@ static time_t	starttime = 0;
 
 static  pthread_t rpt_master_thread;
 
+/*
+ * Structure that holds information regarding app_rpt operation
+*/
 struct rpt;
 
+/*
+ * Structure used to manage links 
+*/
 struct rpt_link
 {
 	struct rpt_link *next;
@@ -939,6 +986,9 @@ struct rpt_link
 #endif
 } ;
 
+/*
+ * Structure used to manage link status
+*/
 struct rpt_lstat
 {
 	struct	rpt_lstat *next;
@@ -1104,6 +1154,9 @@ typedef struct
 
 } tone_detect_state_t;
 
+/*
+ * Populate rpt structure with data
+*/
 static struct rpt
 {
 	ast_mutex_t lock;
@@ -1434,6 +1487,7 @@ static int setrtx_check(struct rpt *myrpt);
 static int channel_revert(struct rpt *myrpt);
 static int channel_steer(struct rpt *myrpt, char *data);
 static void rpt_telemetry(struct rpt *myrpt,int mode, void *data);
+static void rpt_manager_trigger(struct rpt *myrpt, char *event, char *value);
 
 AST_MUTEX_DEFINE_STATIC(nodeloglock);
 
@@ -1503,6 +1557,9 @@ int	i;
 	return(NULL);
 }
 
+/*
+ * Functions related to the threading used in app_rpt dealing with locking
+*/
 
 static void rpt_mutex_spew(void)
 {
@@ -1780,6 +1837,9 @@ static int dovox(struct vox *v,short *buf,int bs)
 
 }
 
+/*
+ * Multi-thread safe sleep routine
+*/
 static void rpt_safe_sleep(struct rpt *rpt,struct ast_channel *chan, int ms)
 {
 	struct ast_frame *f;
@@ -1802,6 +1862,10 @@ static void rpt_safe_sleep(struct rpt *rpt,struct ast_channel *chan, int ms)
 	}
 	return;
 }
+
+/*
+ * Routine to forward a "call" from one channel to another
+*/
 
 static void rpt_forward(struct ast_channel *chan, char *dialstr, char *nodefrom)
 {
@@ -1926,7 +1990,6 @@ static int rpt_do_fun1(int fd, int argc, char *argv[]);
 static int rpt_do_cmd(int fd, int argc, char *argv[]);
 static int rpt_do_setvar(int fd, int argc, char *argv[]);
 static int rpt_do_showvars(int fd, int argc, char *argv[]);
-static int rpt_do_frog(int fd, int argc, char *argv[]);
 static int rpt_do_page(int fd, int argc, char *argv[]);
 
 static char debug_usage[] =
@@ -1998,10 +2061,6 @@ static char setvar_usage[] =
 static char showvars_usage[] =
 "Usage: rpt showvars <nodename>\n"
 "       Display all the Asterisk channel variables for a node.\n";
-
-static char frog_usage[] =
-"Usage: frog [warp_factor]\n"
-"       Performs frog-in-a-blender calculations (Jacobsen Corollary)\n";
 
 static char page_usage[] =
 "Usage: rpt page <nodename> <baud> <capcode> <[ANT]Text....>\n"
@@ -2084,10 +2143,6 @@ static struct ast_cli_entry  cli_showvars =
         { { "rpt", "showvars" }, rpt_do_showvars,
 		"Display Asterisk channel variables", showvars_usage };
 
-static struct ast_cli_entry  cli_frog =
-        { { "frog" }, rpt_do_frog,
-               "Perform frog-in-a-blender calculations", frog_usage };
-
 static struct ast_cli_entry  cli_page =
         { { "rpt", "page" }, rpt_do_page,
 		"Page a user on a node", page_usage };
@@ -2169,6 +2224,10 @@ static inline void goertzel_reset(goertzel_state_t *s)
 	DEBUG_STATENTER("goertzel_reset");
 	s->v2 = s->v3 = s->chunky = 0.0;
 }
+
+/*
+ * Code used to detect tones
+*/
 
 static void tone_detect_init(tone_detect_state_t *s, int freq, int duration, int amp)
 {
@@ -4540,6 +4599,11 @@ static int retrieve_memory(struct rpt *myrpt, char *memory)
 /*
 
 */
+
+/*
+ * Routine that hangs up all links and frees all threads related to them
+ * hence taking a "bird bath".  Makes a lot of noise/cleans up the mess
+ */
 static void birdbath(struct rpt *myrpt)
 {
 	struct rpt_tele *telem;
@@ -4690,6 +4754,10 @@ char	digit;
 	}
 }
 
+/*
+ * Routine to set the Data Terminal Ready (DTR) pin on a serial interface
+*/
+
 static int setdtr(struct rpt *myrpt,int fd, int enable)
 {
 struct termios mode;
@@ -4715,6 +4783,10 @@ struct termios mode;
 	if (enable) usleep(100000);
 	return 0;
 }
+
+/* 
+ * open the serial port
+ */
 
 static int openserial(struct rpt *myrpt,char *fname)
 {
@@ -4754,6 +4826,10 @@ static int openserial(struct rpt *myrpt,char *fname)
 	return(fd);	
 }
 
+/*
+ * Process DTMF keys passed
+ */
+
 static void local_dtmfkey_helper(struct rpt *myrpt,char c)
 {
 int	i;
@@ -4780,6 +4856,8 @@ static void mdc1200_notify(struct rpt *myrpt,char *fromnode, char *data)
 	char str[50];
 	struct flock fl;
 	time_t	t;
+
+        rpt_manager_trigger(myrpt, "MDC-1200", data);
 
 	if (!fromnode)
 	{
@@ -4916,6 +4994,10 @@ struct	mdcparams *mdcp;
 #endif
 #endif
 
+/*
+ * Translate function
+ */
+
 static char func_xlat(struct rpt *myrpt,char c,struct rpt_xlat *xlat)
 {
 time_t	now;
@@ -4970,6 +5052,10 @@ static char *eatwhite(char *s)
 	}
 	return s;
 }
+
+/*
+ * Function to translate characters to APRSTT data
+ */
 
 static char aprstt_xlat(char *instr,char *outstr)
 {
@@ -5333,6 +5419,10 @@ struct rpt_link *l;
 	return;
 }
 
+/*
+ * Routine to process events for rpt_master threads
+ */
+
 static void rpt_event_process(struct rpt *myrpt)
 {
 char	*myval,*argv[5],*cmpvar,*var,*var1,*cmd,c;
@@ -5640,6 +5730,9 @@ struct ast_var_t *newvariable;
 	return;
 }
 
+/*
+ * Routine to update boolean values used in currently referenced rpt structure
+ */
 
 static void rpt_update_boolean(struct rpt *myrpt,char *varname, int newval)
 {
@@ -5650,9 +5743,14 @@ char	buf[10];
 	buf[1] = 0;
 	if (newval > 0) buf[0] = '1';
 	pbx_builtin_setvar_helper(myrpt->rxchannel, varname, buf);
+	rpt_manager_trigger(myrpt, varname, buf);
 	if (newval >= 0) rpt_event_process(myrpt);
 	return;
 }
+
+/*
+ * Updates the active links (channels) list that that the repeater has
+ */
 
 static void rpt_update_links(struct rpt *myrpt)
 {
@@ -5669,9 +5767,11 @@ int	n;
 	else strcpy(obuf,"0");
 	DEBUG_VAR_DATA(obuf);
 	pbx_builtin_setvar_helper(myrpt->rxchannel,"RPT_ALINKS",obuf);
+	rpt_manager_trigger(myrpt, "RPT_ALINKS", obuf);
 	snprintf(obuf,sizeof(obuf) - 1,"%d",n);
 	DEBUG_VAR_DATA(obuf);
 	pbx_builtin_setvar_helper(myrpt->rxchannel,"RPT_NUMALINKS",obuf);
+	rpt_manager_trigger(myrpt, "RPT_NUMALINKS", obuf);
 	ast_mutex_lock(&myrpt->lock);
 	__mklinklist(myrpt,NULL,buf,0);
 	ast_mutex_unlock(&myrpt->lock);
@@ -5681,9 +5781,11 @@ int	n;
 	else strcpy(obuf,"0");
 	DEBUG_VAR_DATA(obuf);
 	pbx_builtin_setvar_helper(myrpt->rxchannel,"RPT_LINKS",obuf);
+	rpt_manager_trigger(myrpt, "RPT_LINKS", obuf);
 	snprintf(obuf,sizeof(obuf) - 1,"%d",n);
 	DEBUG_VAR_DATA(obuf);
 	pbx_builtin_setvar_helper(myrpt->rxchannel,"RPT_NUMLINKS",obuf);
+	rpt_manager_trigger(myrpt, "RPT_NUMLINKS", obuf);
 	rpt_event_process(myrpt);
 	DEBUG_STATEXIT("rpt_update_links");
 	return;
@@ -5772,6 +5874,10 @@ unsigned int seq;
 	return;
 }
 
+/* 
+ * Function stream data 
+ */
+
 static void startoutstream(struct rpt *myrpt)
 {
 char *str;
@@ -5835,6 +5941,12 @@ int	n;
 	}
 	return;
 }
+
+/* 
+ * AllStar Network node lookup function.  This function will take the nodelist that has been read into memory
+ * and try to match the node number that was passed to it.  If it is found, the function requested will succeed.
+ * If not, it will fail.  Called when a connection to a remote node is requested.
+ */
 
 static int node_lookup(struct rpt *myrpt,char *digitbuf,char *str, int strmax, int wilds)
 {
@@ -6202,6 +6314,13 @@ static int retrieve_astcfgint(struct rpt *myrpt,char *category, char *name, int 
         return ret;
 }
 
+/* 
+ * This is the initialization function.  This routine takes the data in rpt.conf and setup up the variables needed for each of
+ * the repeaters that it finds.  There is some minor sanity checking done on the data passed, but not much.
+ * 
+ * Note that this is kind of a mess to read.  It uses the asterisk native function to read config files and pass back values assigned to
+ * keywords.
+ */
 
 static void load_rpt_vars(int n,int init)
 {
@@ -7062,7 +7181,7 @@ static int rpt_do_stats(int fd, int argc, char *argv[])
 			seconds = dailytxtime/1000;
 			dailytxtime %= 1000;
 
-			ast_cli(fd, "TX time today....................................: %02d:%02d:%02d.%d\n",
+			ast_cli(fd, "TX time today....................................: %02d:%02d:%02d:%02d\n",
 				hours, minutes, seconds, dailytxtime);
 
 			hours = (int) totaltxtime/3600000;
@@ -7072,7 +7191,7 @@ static int rpt_do_stats(int fd, int argc, char *argv[])
 			seconds = (int)  totaltxtime/1000;
 			totaltxtime %= 1000;
 
-			ast_cli(fd, "TX time since system initialization..............: %02d:%02d:%02d.%d\n",
+			ast_cli(fd, "TX time since system initialization..............: %02d:%02d:%02d:%02d\n",
 				 hours, minutes, seconds, (int) totaltxtime);
 
                        	hours = uptime/3600;
@@ -7185,13 +7304,13 @@ static int rpt_do_lstats(int fd, int argc, char *argv[])
 				int hours, minutes, seconds;
 				long long connecttime = s->connecttime;
 				char conntime[21];
-				hours = (int) connecttime/3600000;
-				connecttime %= 3600000;
-				minutes = (int) connecttime/60000;
-				connecttime %= 60000;
-				seconds = (int)  connecttime/1000;
-				connecttime %= 1000;
-				snprintf(conntime, 20, "%02d:%02d:%02d.%d",
+				hours = (int) connecttime/3600000L;
+				connecttime %= 3600000L;
+				minutes = (int) connecttime/60000L;
+				connecttime %= 60000L;
+				seconds = (int)  connecttime/1000L;
+				connecttime %= 1000L;
+				snprintf(conntime, 20, "%02d:%02d:%02d:%02d",
 					hours, minutes, seconds, (int) connecttime);
 				conntime[20] = 0;
 				if(s->thisconnected)
@@ -7375,12 +7494,12 @@ static int rpt_do_xnode(int fd, int argc, char *argv[])
 				int hours, minutes, seconds;
 				long long connecttime = s->connecttime;
 				char conntime[21];
-				hours = (int) connecttime/3600000;
-				connecttime %= 3600000;
-				minutes = (int) connecttime/60000;
-				connecttime %= 60000;
-				seconds = (int)  connecttime/1000;
-				connecttime %= 1000;
+				hours = (int) connecttime/3600000L;
+				connecttime %= 3600000L;
+				minutes = (int) connecttime/60000L;
+				connecttime %= 60000L;
+				seconds = (int)  connecttime/1000L;
+				connecttime %= 1000L;
 				snprintf(conntime, 20, "%02d:%02d:%02d",
 					hours, minutes, seconds);
 				conntime[20] = 0;
@@ -7659,6 +7778,8 @@ static int rpt_do_sendtext(int fd, int argc, char *argv[])
         return RESULT_SUCCESS;
 }
 
+//## Paging function
+
 static int rpt_do_page(int fd, int argc, char *argv[])
 {
         int     i;
@@ -7704,6 +7825,8 @@ static int rpt_do_page(int fd, int argc, char *argv[])
 	}
         return RESULT_SUCCESS;
 }
+
+//## Send to all nodes
 
 static int rpt_do_sendall(int fd, int argc, char *argv[])
 {
@@ -7934,28 +8057,6 @@ static int rpt_do_showvars(int fd, int argc, char *argv[])
 	return(0);
 }
 
-/*
-* Perform frong-in-a-blender calculations (Jacobsen Corollary) 
-*/
-                                                                               
-                                                  
-static int rpt_do_frog(int fd, int argc, char *argv[])
-{
-       double warpone = 75139293848.398696166028333356763;
-       double warpfactor = 1.0;
-
-       if (argc > 2) return RESULT_SHOWUSAGE;
-       if ((argc > 1) && (sscanf(argv[1],"%lf",&warpfactor) != 1))
-                return RESULT_SHOWUSAGE;
-
-       ast_cli(fd, "A frog in a blender with a base diameter of 3 inches going\n");
-       ast_cli(fd, "%lf RPM will be travelling at warp factor %lf,\n",
-               warpfactor * warpfactor * warpfactor * warpone,warpfactor);
-       ast_cli(fd,"based upon the Jacobsen Frog Corollary.\n");
-       return RESULT_SUCCESS;
-}
-
-
 static int play_tone_pair(struct ast_channel *chan, int f1, int f2, int duration, int amplitude)
 {
 	int res;
@@ -7975,6 +8076,10 @@ static int play_tone(struct ast_channel *chan, int freq, int duration, int ampli
 {
 	return play_tone_pair(chan, freq, 0, duration, amplitude);
 }
+
+/*
+ *  Hooks for CLI functions
+ */
 
 static char *res2cli(int r)
 
@@ -8201,20 +8306,6 @@ static char *handle_cli_showvars(struct ast_cli_entry *e,
 	return res2cli(rpt_do_showvars(a->fd,a->argc,a->argv));
 }
 
-static char *handle_cli_frog(struct ast_cli_entry *e,
-	int cmd, struct ast_cli_args *a)
-{
-        switch (cmd) {
-        case CLI_INIT:
-                e->command = "frog";
-                e->usage = frog_usage;
-                return NULL;
-        case CLI_GENERATE:
-                return NULL;
-	}
-	return res2cli(rpt_do_frog(a->fd,a->argc,a->argv));
-}
-
 static char *handle_cli_localplay(struct ast_cli_entry *e,
 	int cmd, struct ast_cli_args *a)
 {
@@ -8290,10 +8381,12 @@ static struct ast_cli_entry rpt_cli[] = {
 	AST_CLI_DEFINE(handle_cli_localplay,"Playback an audio file (local)"),
 	AST_CLI_DEFINE(handle_cli_sendall,"Send a Text message to all connected nodes"),
 	AST_CLI_DEFINE(handle_cli_sendtext,"Send a Text message to a specified nodes"),
-	AST_CLI_DEFINE(handle_cli_frog,"Perform frog-in-a-blender calculations"),
 	AST_CLI_DEFINE(handle_cli_page,"Send a page to a user on a node")
 };
 
+/*
+ * End of CLI hooks
+ */
 
 static int morse_cat(char *str, int freq, int duration)
 {
@@ -8317,6 +8410,7 @@ static int morse_cat(char *str, int freq, int duration)
 }
 
 
+//## Convert string into morse code
 
 static int send_morse(struct ast_channel *chan, char *string, int speed, int freq, int amplitude)
 {
@@ -8484,6 +8578,8 @@ static struct morse_bits mbits[] = {
 	return res;
 }
 
+//# Send telemetry tones
+
 static int send_tone_telemetry(struct ast_channel *chan, char *tonestring)
 {
 	char *p,*stringp;
@@ -8542,6 +8638,8 @@ static int send_tone_telemetry(struct ast_channel *chan, char *tonestring)
 		
 }
 
+//# Say a file - streams file to output channel
+
 static int sayfile(struct ast_channel *mychannel,char *fname)
 {
 int	res;
@@ -8570,6 +8668,8 @@ int	res;
 	return res;
 }
 
+//# Say a number -- streams corresponding sound file
+
 static int saynum(struct ast_channel *mychannel, int num)
 {
 	int res;
@@ -8583,6 +8683,8 @@ static int saynum(struct ast_channel *mychannel, int num)
 	ast_stopstream(mychannel);
 	return res;
 }
+
+//# Say a phonetic words -- streams corresponding sound file
 
 static int sayphoneticstr(struct ast_channel *mychannel,char *str)
 {
@@ -8865,6 +8967,20 @@ static int wait_interval(struct rpt *myrpt, int type, struct ast_channel *chan)
 
 static int split_freq(char *mhz, char *decimals, char *freq);
 
+//### BEGIN TELEMETRY CODE SECTION
+/*
+ * Routine to process various telemetry commands that are in the myrpt structure
+ * Used extensively when links and build/torn down and other events are processed by the 
+ * rpt_master threads. 
+ */
+
+ /*
+  *
+  * WARNING:  YOU ARE NOW HEADED INTO ONE GIANT MAZE OF SWITCH STATEMENTS THAT DO MOST OF THE WORK FOR
+  *           APP_RPT.  THE MAJORITY OF THIS IS VERY UNDOCUMENTED CODE AND CAN BE VERY HARD TO READ. 
+  *           IT IS ALSO PROBABLY THE MOST ERROR PRONE PART OF THE CODE, ESPECIALLY THE PORTIONS
+  *           RELATED TO THREADED OPERATIONS.
+  */
 
 static void handle_varcmd_tele(struct rpt *myrpt,struct ast_channel *mychannel,char *varcmd)
 {
@@ -9217,6 +9333,13 @@ struct	tm localtm;
 	ast_log(LOG_WARNING,"Got unknown link telemetry command: %s\n",strs[0]);
 	return;
 }
+
+/*
+ *  Threaded telemetry handling routines - goes hand in hand with the previous routine (see above)
+ *  This routine does a lot of processing of what you "hear" when app_rpt is running.
+ *  Note that this routine could probably benefit from an overhaul to make it easier to read/debug. 
+ *  Many of the items here seem to have been bolted onto this routine as it app_rpt has evolved.
+ */
 
 static void *rpt_tele_thread(void *this)
 {
@@ -11029,6 +11152,10 @@ treataslocal:
 
 static void send_tele_link(struct rpt *myrpt,char *cmd);
 
+/* 
+ *  More repeater telemetry routines.
+ */
+
 static void rpt_telemetry(struct rpt *myrpt,int mode, void *data)
 {
 struct rpt_tele *tele;
@@ -11377,6 +11504,18 @@ struct rpt_link *l;
 	DEBUG_STATEXIT("rpt_telemetry");
 	return;
 }
+
+//## END TELEMETRY SECTION
+
+/* 
+ *  This is the main entry point from the Asterisk call handler to app_rpt when a new "call" is detected and passed off
+ *  This code sets up all the necessary variables for the rpt_master threads to take over handling/processing anything
+ *  related to this call.  Calls are actually channels that are passed from the pbx application to app_rpt.
+ *  
+ *  NOTE: DUE TO THE WAY LATER VERSIONS OF ASTERISK PASS CALLS, ANY ATTEMPTS TO USE APP_RPT.C WITHOUT ADDING BACK IN THE
+ *        "MISSING" PIECES TO THE ASTERISK CALL HANDLER WILL RESULT IN APP_RPT DROPPING ALL CALLS (CHANNELS) PASSED TO IT
+ *        IMMEDIATELY AFTER THIS ROUTINE ATTEMPTS TO PASS IT TO RPT_MASTER'S THREADS.
+ */
 
 static void *rpt_call(void *this)
 {
@@ -19177,10 +19316,13 @@ static void local_dtmf_helper(struct rpt *myrpt,char c_in)
 {
 int	res;
 pthread_attr_t	attr;
-char	cmd[MAXDTMF+1] = "",c;
-
+char   cmd[MAXDTMF+1] = "",c,tone[10];
 
 	c = c_in & 0x7f;
+
+        sprintf(tone,"%c",c);
+        rpt_manager_trigger(myrpt, "DTMF", tone);
+
 	if (myrpt->p.archivedir)
 	{
 		char str[100];
@@ -21337,6 +21479,13 @@ char tmpstr[300],lstr[MAXLINKLIST],lat[100],lon[100],elev[100];
 						mdc1200_send(myrpt,ustr);
 						mdc1200_cmd(myrpt,ustr);
 					}
+                                        /* if for Stun ACK W9CR */
+                                        if ((op == 0x0b) && (arg == 0x00))
+                                        {
+                                                myrpt->lastunit = unitID;
+                                                sprintf(ustr,"STUN ACK %04X",unitID);
+                                        }
+
 					/* if for STS (status)  */
 					if (op == 0x46)
 					{
@@ -25324,6 +25473,20 @@ ourselves, we are using the built-in argument parser to give us what is passed t
 	return res;
 }
 
+static void rpt_manager_trigger(struct rpt *myrpt, char *event, char *value)
+{
+        manager_event(EVENT_FLAG_CALL, event,
+                "Node: %s\r\n"
+                "Channel: %s\r\n"
+                "EventValue: %s\r\n"
+                "LastKeyedTime: %s\r\n"
+                "LastTxKeyedTime: %s\r\n",
+                myrpt->name, myrpt->rxchannel->name, value,
+                ctime(&myrpt->lastkeyedtime), ctime(&myrpt->lasttxkeyedtime)
+        );
+}
+
+
 #ifndef OLD_ASTERISK
 /*!\brief callback to display list of locally configured nodes
    \addtogroup Group_AMI
@@ -25562,12 +25725,12 @@ static int rpt_manager_do_xstat(struct mansession *ses, const struct message *m,
 				int hours, minutes, seconds;
 				long long connecttime = s->connecttime;
 				char conntime[21];
-				hours = (int) connecttime/3600000;
-				connecttime %= 3600000;
-				minutes = (int) connecttime/60000;
-				connecttime %= 60000;
-				seconds = (int)  connecttime/1000;
-				connecttime %= 1000;
+				hours = (int) connecttime/3600000L;
+				connecttime %= 3600000L;
+				minutes = (int) connecttime/60000L;
+				connecttime %= 60000L;
+				seconds = (int)  connecttime/1000L;
+				connecttime %= 1000L;
 				snprintf(conntime, 20, "%02d:%02d:%02d",
 					hours, minutes, seconds);
 				conntime[20] = 0;
@@ -25924,24 +26087,24 @@ static int rpt_manager_do_stats(struct mansession *s, const struct message *m, c
 			astman_append(s, "DtmfCommandsSinceSystemInitialization: %d\r\n", totalexecdcommands);
 			astman_append(s, "LastDtmfCommandExecuted: %s\r\n", 
 			(lastdtmfcommand && strlen(lastdtmfcommand)) ? lastdtmfcommand : not_applicable);
-			hours = dailytxtime/3600000;
-			dailytxtime %= 3600000;
-			minutes = dailytxtime/60000;
-			dailytxtime %= 60000;
-			seconds = dailytxtime/1000;
-			dailytxtime %= 1000;
+			hours = dailytxtime/3600000L;
+			dailytxtime %= 3600000L;
+			minutes = dailytxtime/60000L;
+			dailytxtime %= 60000L;
+			seconds = dailytxtime/1000L;
+			dailytxtime %= 1000L;
 
-			astman_append(s, "TxTimeToday: %02d:%02d:%02d.%d\r\n",
+			astman_append(s, "TxTimeToday: %02d:%02d:%02d:%02d\r\n",
 				hours, minutes, seconds, dailytxtime);
 
-			hours = (int) totaltxtime/3600000;
-			totaltxtime %= 3600000;
-			minutes = (int) totaltxtime/60000;
-			totaltxtime %= 60000;
-			seconds = (int)  totaltxtime/1000;
-			totaltxtime %= 1000;
+			hours = (int) totaltxtime/3600000L;
+			totaltxtime %= 3600000L;
+			minutes = (int) totaltxtime/60000L;
+			totaltxtime %= 60000L;
+			seconds = (int)  totaltxtime/1000L;
+			totaltxtime %= 1000L;
 
-			astman_append(s, "TxTimeSinceSystemInitialization: %02d:%02d:%02d.%d\r\n",
+			astman_append(s, "TxTimeSinceSystemInitialization: %02d:%02d:%02d:%02d\r\n",
 				 hours, minutes, seconds, (int) totaltxtime);
 
   			sprintf(str, "NodesCurrentlyConnectedToUs: ");
@@ -26165,10 +26328,19 @@ static void * mdcgen_alloc(struct ast_channel *chan, void *params)
 			p->subcode & 0xff,p->UnitID >> 8,p->UnitID & 0xff);
 	}
 	else if (p->type[0] == 'A')
-	{
-		mdc_encoder_set_packet(ps->mdc,0x23,0,p->UnitID);
-	}
-	else
+        {
+                mdc_encoder_set_packet(ps->mdc,0x23,0,p->UnitID);
+        }
+        else if (p->type[0] == 'K') // kill a unit W9CR
+        {
+                mdc_encoder_set_packet(ps->mdc,0x22b,0x00,p->UnitID);
+        }
+        else if (p->type[0] == 'U') // UnKill a unit W9CR
+        {
+                mdc_encoder_set_packet(ps->mdc,0x2b,0x0c,p->UnitID);
+        }
+        else
+
 	{
 		ast_log(LOG_ERROR, "Dont know MDC encode type '%s'\n", p->type);
 		ast_free(ps);
@@ -26213,7 +26385,20 @@ static int mdcgen_generator(struct ast_channel *chan, void *data, int len, int s
 	
 static struct ast_generator mdcgen = {
 	alloc: mdcgen_alloc,
-	release: mdcgen_release,
+	release:e if (p->type[0] == 'A')
+        {
+                mdc_encoder_set_packet(ps->mdc,0x23,0,p->UnitID);
+        }
+        else if (p->type[0] == 'K') // kill a unit W9CR
+        {
+                mdc_encoder_set_packet(ps->mdc,0x22b,0x00,p->UnitID);
+        }
+        else if (p->type[0] == 'U') // UnKill a unit W9CR
+        {
+                mdc_encoder_set_packet(ps->mdc,0x2b,0x0c,p->UnitID);
+        }
+        else
+mdcgen_release,
 	generate: mdcgen_generator,
 };
 
@@ -26306,6 +26491,19 @@ static int mdcgen_exec(struct ast_channel *chan, void *data)
 }
 
 
+       else if (p->type[0] == 'A')
+        {
+                mdc_encoder_set_packet(ps->mdc,0x23,0,p->UnitID);
+        }
+        else if (p->type[0] == 'K') // kill a unit W9CR
+        {
+                mdc_encoder_set_packet(ps->mdc,0x22b,0x00,p->UnitID);
+        }
+        else if (p->type[0] == 'U') // UnKill a unit W9CR
+        {
+                mdc_encoder_set_packet(ps->mdc,0x2b,0x0c,p->UnitID);
+        }
+        else
 #endif
 
 /*! \brief RPT load module - initialization */

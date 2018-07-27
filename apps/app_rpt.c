@@ -55,6 +55,7 @@
  * \note Serious contributions by Steve RoDgers, WA6ZFT <hwstar@rodgers.sdcoxmail.com>
  * \note contributions by Steven Henke, W9SH, <w9sh@arrl.net> added a few features here and there.
  * \note contributions by Steve Zingman, N4IRS
+ * \note contributions by Bryan Fields, W9CR
  * \note contributions by Stacy Olivas, KG7QIN, <kg7qin@arrl.net> ported it to Asterisk 1.8
  *
  * \note See http://ohnosec.org/drupal/

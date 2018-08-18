@@ -211,6 +211,14 @@ Obviously, it is not valid to use *ANY* of the duplex=3 modes in a voted and/or 
 
 #include "asterisk.h"
 
+/*
+ * Please change this revision number when you make a edit
+ * use the simple format YYMMDD
+*/
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180213 $")
+// ASTERISK_FILE_VERSION(__FILE__, "$"ASTERISK_VERSION" $")
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -250,7 +258,7 @@ Obviously, it is not valid to use *ANY* of the duplex=3 modes in a voted and/or 
 #include <dahdi/user.h>
 #include <dahdi/tonezone.h>
 
-#include "pocsag.c"
+#include "../allstar/pocsag.c"
 
 /* Un-comment this if you wish Digital milliwatt output rather then real audio
    when transmitting (for debugging only) */

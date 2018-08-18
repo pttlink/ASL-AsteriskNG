@@ -42,7 +42,14 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 535 $")
+/*
+ * Please change this revision number when you make a edit
+ * use the simple format YYMMDD
+*/
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180112 $")
+// ASTERISK_FILE_VERSION(__FILE__, "$"ASTERISK_VERSION" $")
+
 
 #include <stdio.h>
 #include <ctype.h>
@@ -160,9 +167,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 535 $")
 
 #define C108_VENDOR_ID		0x0d8c
 #define C108_PRODUCT_ID  	0x000c
+#define C108B_PRODUCT_ID       	0x0012
 #define C108AH_PRODUCT_ID  	0x013c
 #define C119_PRODUCT_ID  	0x0008
 #define C119A_PRODUCT_ID  	0x013a
+#define C119B_PRODUCT_ID        0x0013
 #define N1KDO_PRODUCT_ID  	0x6a00
 #define C108_HID_INTERFACE	3
 
@@ -247,6 +256,7 @@ START_CONFIG
 
 	; rxondelay=0		  ; number of 20ms intervals to hold off receiver turn-on indication
 
+	; duplex3 = 0		; duplex 3 gain setting (0 to disable
 
 	; gpioX=in		; define input/output pin GPIO(x) in,out0,out1 (where X {1..32}) (optional)
 
@@ -607,6 +617,10 @@ isn't defined elsewhere in the code */
 	float	txctcssgain;
 	char 	txmixa;
 	char 	txmixb;
+	int     rxlpf;
+	int     rxhpf;
+	int     txlpf;
+	int     txhpf;
 
 	char	invertptt;
 
@@ -714,6 +728,7 @@ isn't defined elsewhere in the code */
 	char usbass;
 	struct timeval tonetime;
 	int toneflag;
+	int duplex3;
 	int32_t cur_gpios;
 	char *gpios[32];
 	char *pps[32];
@@ -1093,8 +1108,10 @@ static struct usb_device *hid_device_init(char *desired_device)
             if ((dev->descriptor.idVendor
                   == C108_VENDOR_ID) &&
 		(((dev->descriptor.idProduct & 0xfffc) == C108_PRODUCT_ID) ||
+		(dev->descriptor.idProduct == C108B_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C108AH_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C119A_PRODUCT_ID) ||
+		(dev->descriptor.idProduct == C119B_PRODUCT_ID) ||
 		((dev->descriptor.idProduct & 0xff00)  == N1KDO_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C119_PRODUCT_ID)))
 		{
@@ -1177,8 +1194,10 @@ static int hid_device_mklist(void)
             if ((dev->descriptor.idVendor
                   == C108_VENDOR_ID) &&
 		(((dev->descriptor.idProduct & 0xfffc) == C108_PRODUCT_ID) ||
+		(dev->descriptor.idProduct == C108B_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C108AH_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C119A_PRODUCT_ID) ||
+		(dev->descriptor.idProduct == C119B_PRODUCT_ID) ||
 		((dev->descriptor.idProduct & 0xff00)  == N1KDO_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C119_PRODUCT_ID)))
 		{
@@ -2667,6 +2686,8 @@ static struct ast_frame *usbradio_read(struct ast_channel *c)
 			// printf("AST_CONTROL_RADIO_UNKEY\n");
 			wf.subclass.integer = AST_CONTROL_RADIO_UNKEY;
 			ast_queue_frame(o->owner, &wf);
+			if (o->duplex3)
+				setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_SW,0,0);
 		}
                 return f;
         }
@@ -3009,6 +3030,8 @@ static struct ast_frame *usbradio_read(struct ast_channel *c)
 		// printf("AST_CONTROL_RADIO_UNKEY\n");
 		wf.subclass.integer = AST_CONTROL_RADIO_UNKEY;
 		ast_queue_frame(o->owner, &wf);
+		if (o->duplex3)
+			setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_SW,0,0);
 	}
 	else if ((!o->lastrx) && (o->rxkeyed))
 	{
@@ -3022,6 +3045,8 @@ static struct ast_frame *usbradio_read(struct ast_channel *c)
 				TRACEO(1,("AST_CONTROL_RADIO_KEY text=%s\n",o->rxctcssfreq));
 	        }
 		ast_queue_frame(o->owner, &wf);
+		if (o->duplex3)
+			setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_SW,1,0);
 	}
 
 	o->readpos = AST_FRIENDLY_OFFSET;	/* reset read pointer for next frame */
@@ -4831,7 +4856,16 @@ static void tune_write(struct chan_usbradio_pvt *o)
 static void mixer_write(struct chan_usbradio_pvt *o)
 {
 	setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_SW,0,0);
-	setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_VOL,0,0);
+	if (o->duplex3)
+	{
+		if (o->duplex3 > o->micplaymax)
+			o->duplex3 = o->micplaymax;
+		setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_VOL,o->duplex3,0);
+	}
+	else
+	{
+		setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_VOL,0,0);
+	}
 	setamixer(o->devicenum,(o->newname) ? MIXER_PARAM_SPKR_PLAYBACK_SW_NEW : MIXER_PARAM_SPKR_PLAYBACK_SW,1,0);
 	setamixer(o->devicenum,(o->newname) ? MIXER_PARAM_SPKR_PLAYBACK_VOL_NEW : MIXER_PARAM_SPKR_PLAYBACK_VOL,
 		make_spkr_playback_value(o,o->txmixaset),
@@ -5187,7 +5221,8 @@ static struct chan_usbradio_pvt *store_config(struct ast_config *cfg, char *ctg,
 			M_UINT("debug", usbradio_debug)
 			M_BOOL("rxcpusaver",o->rxcpusaver)
 			M_BOOL("txcpusaver",o->txcpusaver)
-			M_BOOL("invertptt",o->invertptt)
+			
+		(dev->descriptor.idProduct == C119B_PRODUCT_ID) ||M_BOOL("invertptt",o->invertptt)
 			M_F("rxdemod",store_rxdemod(o,(char *)v->value))
 			M_BOOL("txlimonly",o->txlimonly);
 			M_BOOL("txprelim",o->txprelim);
@@ -5231,6 +5266,16 @@ static struct chan_usbradio_pvt *store_config(struct ast_config *cfg, char *ctg,
 			M_UINT("rxondelay",o->rxondelay);
 			M_UINT("area",o->area)
 			M_STR("ukey",o->ukey)
+			M_UNIT("duplex3",o->duplex3);
+		        M_UINT("rxlpf",o->rxlpf)
+		        M_UINT("rxhpf",o->rxhpf)
+		        M_UINT("txlpf",o->txlpf)
+		        M_UINT("txhpf",o->txhpf)
+// 	                ast_log(LOG_NOTICE,"rxlpf: %d\n",o->rxlpf);
+//		        ast_log(LOG_NOTICE,"rxhpf: %d\n",o->rxhpf);
+//		        ast_log(LOG_NOTICE,"txlpf: %d\n",o->txlpf);
+// 		        ast_log(LOG_NOTICE,"txhpf: %d\n",o->txhpf);
+
 			M_END(;			
 			);
 			for(i = 0; i < 32; i++)
@@ -5380,8 +5425,13 @@ static struct chan_usbradio_pvt *store_config(struct ast_config *cfg, char *ctg,
 		tChan.idleinterval=o->idleinterval;
 		tChan.turnoffs=o->turnoffs;
 		tChan.area=o->area;
-		tChan.ukey=o->ukey;
+		tChan.ukey=o->
 		tChan.name=o->name;
+
+	        tChan.rxhpf=o->rxhpf;
+	        tChan.rxlpf=o->rxlpf;
+	        tChan.txhpf=o->txhpf;
+	        tChan.txlpf=o->txlpf;
 
 		o->pmrChan=createPmrChannel(&tChan,FRAME_SIZE);
 									 

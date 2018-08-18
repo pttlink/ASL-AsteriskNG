@@ -258,7 +258,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180213 $")
 #include <dahdi/user.h>
 #include <dahdi/tonezone.h>
 
-#include "../allstar/pocsag.c"
+#include "pocsag/pocsag.c"
 
 /* Un-comment this if you wish Digital milliwatt output rather then real audio
    when transmitting (for debugging only) */

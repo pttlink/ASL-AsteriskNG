@@ -40,7 +40,13 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 535 $")
+/*
+ * Please change this revision number when you make a edit
+ * use the simple format YYMMDD
+*/
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180213 $")
+// ASTERISK_FILE_VERSION(__FILE__, "$"ASTERISK_VERSION" $")
 
 #include <stdio.h>
 #include <ctype.h>
@@ -62,7 +68,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 535 $")
 #include <linux/version.h>
 #include <alsa/asoundlib.h>
 
-#include "pocsag.c"
+#include "pocsag/pocsag.c"
 
 #define DEBUG_CAPTURES	 		1
 
@@ -137,10 +143,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 535 $")
 
 #define C108_VENDOR_ID		0x0d8c
 #define C108_PRODUCT_ID  	0x000c
+#define C108B_PRODUCT_ID       	0x0012
 #define C108AH_PRODUCT_ID  	0x013c
 #define N1KDO_PRODUCT_ID  	0x6a00
 #define C119_PRODUCT_ID  	0x0008
 #define C119A_PRODUCT_ID  	0x013a
+#define C119B_PRODUCT_ID        0x0013
 #define C108_HID_INTERFACE	3
 
 #define HID_REPORT_GET		0x01
@@ -987,8 +995,10 @@ static struct usb_device *hid_device_init(char *desired_device)
             if ((dev->descriptor.idVendor
                   == C108_VENDOR_ID) &&
 		(((dev->descriptor.idProduct & 0xfffc) == C108_PRODUCT_ID) ||
+		(dev->descriptor.idProduct == C108B_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C108AH_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C119A_PRODUCT_ID) ||
+		(dev->descriptor.idProduct == C119B_PRODUCT_ID) ||
 		((dev->descriptor.idProduct & 0xff00)  == N1KDO_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C119_PRODUCT_ID)))
 		{
@@ -1071,8 +1081,10 @@ static int hid_device_mklist(void)
             if ((dev->descriptor.idVendor
                   == C108_VENDOR_ID) &&
 		(((dev->descriptor.idProduct & 0xfffc) == C108_PRODUCT_ID) ||
+		(dev->descriptor.idProduct == C108B_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C108AH_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C119A_PRODUCT_ID) ||
+		(dev->descriptor.idProduct == C119B_PRODUCT_ID) ||
 		((dev->descriptor.idProduct & 0xff00)  == N1KDO_PRODUCT_ID) ||
 		(dev->descriptor.idProduct == C119_PRODUCT_ID)))
 		{
@@ -1447,7 +1459,7 @@ static void *hidthread(void *arg)
 			if (usb_dev == NULL) continue;
 			if ((usb_dev->descriptor.idProduct & 0xff00) != N1KDO_PRODUCT_ID) continue;
 			if (o->index != (usb_dev->descriptor.idProduct & 0xf)) continue;
-			ast_log(LOG_NOTICE,"N1KDO port %d, USB device %s usbradio channel %s\n",
+			ast_log(LOG_NOTICE,"N1KDO port %d, USB device %s simpleusb channel %s\n",
 				usb_dev->descriptor.idProduct & 0xf,s,o->name);
 			strcpy(o->devstr,s);
 			isn1kdo = 1;
@@ -1752,7 +1764,7 @@ static void *hidthread(void *arg)
 						fr.samples = 0;
 						fr.frametype = AST_FRAME_TEXT;
 						fr.subclass.integer = 0;
-						fr.src = "chan_usbradio";
+						fr.src = "chan_simpleusb";
 						fr.offset = 0;
 						fr.mallocd=0;
 						fr.delivery.tv_sec = 0;
@@ -1797,7 +1809,7 @@ static void *hidthread(void *arg)
 						fr.samples = 0;
 						fr.frametype = AST_FRAME_TEXT;
 						fr.subclass.integer = 0;
-						fr.src = "chan_usbradio";
+						fr.src = "chan_simpleusb";
 						fr.offset = 0;
 						fr.mallocd=0;
 						fr.delivery.tv_sec = 0;
@@ -1817,7 +1829,7 @@ static void *hidthread(void *arg)
 					j = k & (1 << ppinshift[i]); /* set the bit accordingly */
 					if (j != o->rxppsq)
 					{
-						if(o->debuglevel)printf("chan_usbradio() hidthread: update rxppsq = %d\n",j);
+						if(o->debuglevel)printf("chan_simpleusb() hidthread: update rxppsq = %d\n",j);
 						o->rxppsq = j;
 					}
 				}
@@ -2250,7 +2262,7 @@ static int simpleusb_text(struct ast_channel *c, const char *text)
 		cnt = sscanf(text,"%s %d",cmd,&i);
 		if (cnt < 2) return 0;
 		o->rxctcssoverride = !i;
-	        if(o->debuglevel)ast_log(LOG_NOTICE,"parse usbradio RXCTCSS cmd: %s\n",text);
+	        if(o->debuglevel)ast_log(LOG_NOTICE,"parse simpleusb RXCTCSS cmd: %s\n",text);
 		return 0;		
 	}
 

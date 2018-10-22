@@ -228,6 +228,7 @@ START_CONFIG
 	; invertptt = 0
 
         ; duplex = 1		; duplex mode    
+	; duplex3 = 0		; duplex mode
 
 	; rxondelay = 0		  ; number of 20ms intervals to hold off receiver turn-on indication
 
@@ -490,6 +491,7 @@ struct chan_simpleusb_pvt {
 	char devstr[128];
 	int spkrmax;
 	int micmax;
+	int mixplaymax;
 
 //#ifndef	NEW_ASTERISK
 	pthread_t sthread;
@@ -557,6 +559,7 @@ struct chan_simpleusb_pvt {
 	float	hpy[NTAPS_PL + 1];
 
 	int32_t	destate;
+	int32_t prestate;
 
 	char    rxcpusaver;
 	char    txcpusaver;
@@ -628,6 +631,8 @@ struct chan_simpleusb_pvt {
 	int16_t apeak;
 	int plfilter;
 	int deemphasis;
+	int preemphasis;
+	int duplex3;
 	int32_t cur_gpios;
 	char *gpios[32];
 	char *pps[32];
@@ -761,6 +766,23 @@ int32_t accum; /* 32 bit accumulator */
         return((accum >> 14) + (accum >> 15));
 }
 
+/* Perform standard 6db/octave pre-emphasis */
+static int16_t preemph(int16_t input,int32_t *state)
+{
+
+int16_t coeff00 = 17610;
+int16_t coeff01 = -17610;
+int16_t adjval = 13404;
+int32_t y,temp0,temp1; 
+
+       temp0 = *state * coeff01;
+       *state = input;
+       temp1 = input * coeff00;
+       y = (temp0 + temp1) / adjval;
+       if (y > 32767) y=32767;
+       else if (y <-32767) y=-32767;
+       return(y);
+}
 
 /* IIR 3 pole High pass filter, 300 Hz corner with 0.5 db ripple */
 
@@ -1554,6 +1576,7 @@ static void *hidthread(void *arg)
 		ast_mutex_unlock(&usb_dev_lock);
 		o->micmax = amixer_max(o->devicenum,MIXER_PARAM_MIC_CAPTURE_VOL);
 		o->spkrmax = amixer_max(o->devicenum,MIXER_PARAM_SPKR_PLAYBACK_VOL);
+		o->micplaymax = amixer_max(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_VOL);
 		if (o->spkrmax == -1) 
 		{
 			o->newname = 1;
@@ -1627,6 +1650,7 @@ static void *hidthread(void *arg)
 		if (o->wanteeprom) o->eepromctl = 1;
 		ast_mutex_unlock(&o->eepromlock);
 		mixer_write(o);
+		setformat(o,O_RDWR);            // KB4FXC 2014-08-24
                 o->hasusb = 1;
 		while((!o->stophid) && o->hasusb)
 		{
@@ -2711,24 +2735,28 @@ static struct ast_frame *simpleusb_read(struct ast_channel *c)
 					}
 					for(i = 0; i < FRAME_SIZE; i++)
 					{
-						short v;
+						short s,v;
 
-						v = lpass(sp[i],o->flpt);
+                                                if (o->preemphasis)
+                                                        s = preemph(sp[i],&o->prestate);
+                                                else
+                                                        s = sp[i];
+                                                v = lpass(s,o->flpt);
 						*sp1++ = (doleft) ? v : 0;
 						*sp1++ = (doright) ? v : 0;
-						v = lpass(sp[i],o->flpt);
+						v = lpass(sp,o->flpt);
 						*sp1++ = (doleft) ? v : 0;
 						*sp1++ = (doright) ? v : 0;
-						v = lpass(sp[i],o->flpt);
+						v = lpass(sp,o->flpt);
 						*sp1++ = (doleft) ? v : 0;
 						*sp1++ = (doright) ? v : 0;
-						v = lpass(sp[i],o->flpt);
+						v = lpass(sp,o->flpt);
 						*sp1++ = (doleft) ? v : 0;
 						*sp1++ = (doright) ? v : 0;
-						v = lpass(sp[i],o->flpt);
+						v = lpass(sp,o->flpt);
 						*sp1++ = (doleft) ? v : 0;
 						*sp1++ = (doright) ? v : 0;
-						v = lpass(sp[i],o->flpt);
+						v = lpass(sp,o->flpt);
 						*sp1++ = (doleft) ? v : 0;
 						*sp1++ = (doright) ? v : 0;
 					}				
@@ -2801,6 +2829,8 @@ static struct ast_frame *simpleusb_read(struct ast_channel *c)
 		// printf("AST_CONTROL_RADIO_UNKEY\n");
 		wf.subclass.integer = AST_CONTROL_RADIO_UNKEY;
 		ast_queue_frame(o->owner, &wf);
+                if (o->duplex3)
+                        setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_SW,0,0);
 	}
 	else if ((!o->lastrx) && (o->rxkeyed))
 	{
@@ -2808,6 +2838,8 @@ static struct ast_frame *simpleusb_read(struct ast_channel *c)
 		//printf("AST_CONTROL_RADIO_KEY\n");
 		wf.subclass.integer = AST_CONTROL_RADIO_KEY;
 		ast_queue_frame(o->owner, &wf);
+                if (o->duplex3)
+                        setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_SW,1,0);
 	}
 
 	sp = (short *)o->simpleusb_read_buf;
@@ -3850,8 +3882,17 @@ static void mixer_write(struct chan_simpleusb_pvt *o)
 	int x;
 	float f,f1;
 
+        if (o->duplex3)
+        {
+                if (o->duplex3 > o->micplaymax)
+                        o->duplex3 = o->micplaymax;
+                setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_VOL,o->duplex3,0);
+        }
+        else
+        {
+                setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_VOL,0,0);
+        }
 	setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_SW,0,0);
-	setamixer(o->devicenum,MIXER_PARAM_MIC_PLAYBACK_VOL,0,0);
 	setamixer(o->devicenum,(o->newname) ? MIXER_PARAM_SPKR_PLAYBACK_SW_NEW : MIXER_PARAM_SPKR_PLAYBACK_SW,1,0);
 	setamixer(o->devicenum,(o->newname) ? MIXER_PARAM_SPKR_PLAYBACK_VOL_NEW : MIXER_PARAM_SPKR_PLAYBACK_VOL,
 		make_spkr_playback_value(o,o->txmixaset),
@@ -3931,6 +3972,8 @@ static struct chan_simpleusb_pvt *store_config(struct ast_config *cfg, char *ctg
 			M_F("pager",store_pager(o,(char *)v->value))
  			M_BOOL("plfilter",o->plfilter)
  			M_BOOL("deemphasis",o->deemphasis)
+                        M_BOOL("preemphasis",o->preemphasis)
+                        M_UINT("duplex3",o->duplex3)
 			M_END(;
 			);
 			for(i = 0; i < 32; i++)

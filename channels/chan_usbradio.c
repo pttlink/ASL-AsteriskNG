@@ -5426,7 +5426,7 @@ static struct chan_usbradio_pvt *store_config(struct ast_config *cfg, char *ctg,
 		tChan.idleinterval=o->idleinterval;
 		tChan.turnoffs=o->turnoffs;
 		tChan.area=o->area;
-		tChan.ukey=o->
+		tChan.ukey=o->ukey;
 		tChan.name=o->name;
 
 	        tChan.rxhpf=o->rxhpf;

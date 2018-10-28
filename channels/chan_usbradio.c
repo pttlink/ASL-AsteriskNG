@@ -5222,8 +5222,7 @@ static struct chan_usbradio_pvt *store_config(struct ast_config *cfg, char *ctg,
 			M_UINT("debug", usbradio_debug)
 			M_BOOL("rxcpusaver",o->rxcpusaver)
 			M_BOOL("txcpusaver",o->txcpusaver)
-			
-		(dev->descriptor.idProduct == C119B_PRODUCT_ID) ||M_BOOL("invertptt",o->invertptt)
+			M_BOOL("invertptt",o->invertptt)	
 			M_F("rxdemod",store_rxdemod(o,(char *)v->value))
 			M_BOOL("txlimonly",o->txlimonly);
 			M_BOOL("txprelim",o->txprelim);

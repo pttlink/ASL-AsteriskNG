@@ -524,6 +524,7 @@ isn't defined elsewhere in the code */
 	char devstr[128];
 	int spkrmax;
 	int micmax;
+	int micplaymax;
 
 	/* commented out to include, probably not needed unless the corresponding code that uses it is included */
 //#ifndef	NEW_ASTERISK

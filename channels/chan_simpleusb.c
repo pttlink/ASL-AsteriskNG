@@ -491,7 +491,7 @@ struct chan_simpleusb_pvt {
 	char devstr[128];
 	int spkrmax;
 	int micmax;
-	int mixplaymax;
+	int micplaymax;
 
 //#ifndef	NEW_ASTERISK
 	pthread_t sthread;

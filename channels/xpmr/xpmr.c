@@ -23,7 +23,13 @@
  *
  * A license has been granted to Digium (via disclaimer) for the use of
  * this code.
+
+ * A license has been granted to Digium (via disclaimer) for the use of
+ * this code.
  *
+ * 20160829	inad	added rxlpf rxhpf txlpf txhpf
+ * 20161024	inad	fixed set the number of coefficients
+ * 20161027	WN3A    allow filters of different tap counts
  * 20090725 2039 sph@xelatec.com improved rxfrontend and squelch
   */
 
@@ -49,6 +55,14 @@
 */
 
 // XPMR_FILE_VERSION(__FILE__, "$Revision: 491 $")
+
+#define GCC_VERSION (__GNUC__ * 10000 \
+                               + __GNUC_MINOR__ * 100 \
+                               + __GNUC_PATCHLEVEL__)
+#if GCC_VERSION > 40600
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsequence-point"
+#endif
 
 #include <stdio.h>
 #include <ctype.h>
@@ -479,9 +493,9 @@ i16 pmr_rx_frontend(t_pmr_sps *mySps)
 	#define DCgainBpfNoise 	65536
 
 	i16 samples,nx,iOutput, *input, *output, *noutput;
-	i16 *x, *coef;
-	i16 decimator, decimate, doNoise;
-    i32 i, naccum, outputGain, calcAdjust;
+	i16 *x;
+	i16 decimator, decimate, doNoise, fever, fev1;
+	i32 i, naccum, outputGain, calcAdjust;
 	i64 y, npwr;
 
 	TRACEJ(5,("pmr_rx_frontend()\n"));
@@ -494,9 +508,9 @@ i16 pmr_rx_frontend(t_pmr_sps *mySps)
 	input     = mySps->source;
 	output    = mySps->sink;
 	noutput   = mySps->parentChan->pRxNoise;
+	fever   = mySps->parentChan->fever;
 
 	nx        = mySps->nx;
-	coef      = mySps->coef;
 
 	calcAdjust = mySps->calcAdjust;
 	outputGain = mySps->outputGain;
@@ -509,6 +523,11 @@ i16 pmr_rx_frontend(t_pmr_sps *mySps)
 	if(mySps->parentChan->rxCdType!=CD_XPMR_VOX)doNoise=1;
 	else doNoise=0;
 
+	if (fever)
+	    fev1 = (nx - 1) * 2;
+	else
+	    fev1 = nx - 1;
+
 	for(i=0;i<samples;i++)
 	{
 		i16 n;
@@ -518,17 +537,17 @@ i16 pmr_rx_frontend(t_pmr_sps *mySps)
 	    for(n=nx-1; n>0; n--)
 	       x[n] = x[n-1];
         #else
-		memmove(x+1,x,nx-1);
+		memmove(x+1,x,fev1);
         #endif
 	    x[0] = input[i*2];
 
 #if	XPMR_TRACE_FRONTEND == 1
 	    y=0;
 	    for(n=0; n<nx; n++)
-	        y += coef_fir_lpf_3K_1[n] * x[n];
+	        y +=  fir_rxlpf[mySps->parentChan->rxlpf].coefs[n] * x[n];
 
 	    y=((y/calcAdjust)*outputGain)/M_Q8;
-		input[i*2]=y;	 // debug output LowPass at 48KS/s 
+		input[i*2]=y;	 // debug output LowPass at 48KS/s
 #endif
 
 		if(doNoise)
@@ -537,8 +556,8 @@ i16 pmr_rx_frontend(t_pmr_sps *mySps)
 			naccum=0;
 			if(mySps->parentChan->rxNoiseFilType==0)
 			{
-			    for(n=0; n<nx; n++)
-			        naccum += coef_fir_bpf_noise_1[n] * x[n];	
+			    for(n=0; n<taps_fir_bpf_noise_1; n++)
+			        naccum += coef_fir_bpf_noise_1[n] * x[n];
 			    naccum /= DCgainBpfNoise;
 			}
 			else
@@ -562,7 +581,7 @@ i16 pmr_rx_frontend(t_pmr_sps *mySps)
 
 		    y=0;
 		    for(n=0; n<nx; n++)
-		        y += coef_fir_lpf_3K_1[n] * x[n];
+		        y += fir_rxlpf[mySps->parentChan->rxlpf].coefs[n] * x[n];
 
 		    y=((y/calcAdjust)*outputGain)/M_Q8;
 
@@ -805,7 +824,7 @@ i16 gp_inte_00(t_pmr_sps *mySps)
 	i16 npoints;
  	i16 *input, *output;
 
-	i32 inputGain, outputGain,calcAdjust;
+	i32 outputGain;
 	i32	i;
 	i32 accum;
 
@@ -820,9 +839,7 @@ i16 gp_inte_00(t_pmr_sps *mySps)
 
 	npoints=mySps->nSamples;
 
-	inputGain=mySps->inputGain;
 	outputGain=mySps->outputGain;
-	calcAdjust=mySps->calcAdjust;
 
 	coeff00=((i16*)mySps->coef)[0];
 	coeff01=((i16*)mySps->coef)[1];
@@ -850,13 +867,12 @@ i16 gp_diff(t_pmr_sps *mySps)
 {
  	i16 *input, *output;
 	i16 npoints;
-	i32 inputGain, outputGain, calcAdjust;
+	i32 outputGain, calcAdjust;
 	i32	i;
 	i32 temp0,temp1;
  	i16 x0;
 	i32 y0;
 	i16 a0,a1;
-	i16 b0;
 	i16 *coef;
 	i16 *x;
 
@@ -865,7 +881,6 @@ i16 gp_diff(t_pmr_sps *mySps)
 
 	npoints=mySps->nSamples;
 
-	inputGain=mySps->inputGain;
 	outputGain=mySps->outputGain;
 	calcAdjust=mySps->calcAdjust;
 
@@ -873,7 +888,6 @@ i16 gp_diff(t_pmr_sps *mySps)
 	x=(i16*)(mySps->x);
 	a0=coef[0];
 	a1=coef[1];
-	b0=coef[2];
 
 	x0=x[0];
 
@@ -901,10 +915,10 @@ i16 gp_diff(t_pmr_sps *mySps)
 */
 i16 CenterSlicer(t_pmr_sps *mySps)
 {
-	i16 npoints,lhit,uhit;
+	i16 npoints;
  	i16 *input, *output, *buff;
 
-	i32 inputGain, outputGain, inputGainB;
+	i32 inputGainB;
 	i32	i;
 	i32 accum;
 
@@ -927,8 +941,6 @@ i16 CenterSlicer(t_pmr_sps *mySps)
 
 	npoints=mySps->nSamples;
 
-	inputGain=mySps->inputGain;
-	outputGain=mySps->outputGain;
 	inputGainB=mySps->inputGainB;
 
 	amax=mySps->amax;
@@ -945,33 +957,26 @@ i16 CenterSlicer(t_pmr_sps *mySps)
 	{
 		accum=input[i];
 
-		lhit=uhit=0;
-
 		if(accum>amax)
 		{
 			amax=accum;
-			uhit=1;
 			if(amin<(amax-setpt))
 			{
 				amin=(amax-setpt);
-				lhit=1;
 			}
 		}
 		else if(accum<amin)
 		{
 			amin=accum;
-			lhit=1;
 			if(amax>(amin+setpt))
 			{
 				amax=(amin+setpt);
-				uhit=1;
 			}
 		}
 		#if 0
 		if((discounteru-=1)<=0 && amax>amin)
 		{
 			if((amax-=10)<amin)amax=amin;
-			uhit=1;
 		}
 
 		if((discounterl-=1)<=0 && amin<amax)
@@ -1034,7 +1039,6 @@ i16 MeasureBlock(t_pmr_sps *mySps)
 	i16 npoints;
  	i16 *input, *output;
 
-	i32 inputGain, outputGain;
 	i32	i;
 	i32 accum;
 
@@ -1063,9 +1067,6 @@ i16 MeasureBlock(t_pmr_sps *mySps)
 	output	= mySps->sink;
 
 	npoints=mySps->nSamples;
-
-	inputGain=mySps->inputGain;
-	outputGain=mySps->outputGain;
 
 	amax=mySps->amax;
 	amin=mySps->amin;
@@ -1126,7 +1127,7 @@ i16 SoftLimiter(t_pmr_sps *mySps)
 	//i16 samples, lhit,uhit;
  	i16 *input, *output;
 
-	i32 inputGain, outputGain;
+	i32 outputGain;
 	i32	i;
 	i32 accum;
 	i32  tmp;
@@ -1135,12 +1136,10 @@ i16 SoftLimiter(t_pmr_sps *mySps)
 	i32  amin;			// buffer amplitude minimum
 	//i32  apeak;		// buffer amplitude peak
 	i32  setpt;			// amplitude set point for amplitude comparator
-	i16  compOut;		// amplitude comparator output
 
 	input   = mySps->source;
 	output	= mySps->sink;
 
-	inputGain=mySps->inputGain;
 	outputGain=mySps->outputGain;
 
 	npoints=mySps->nSamples;
@@ -1161,7 +1160,6 @@ i16 SoftLimiter(t_pmr_sps *mySps)
 		    tmp=((accum-setpt)*4)/128;
 		    accum=setpt+tmp;
 			if(accum>amax)accum=amax;
-			compOut=1;
 			accum=setpt;
 		}
 		else if(accum<-setpt)
@@ -1169,7 +1167,6 @@ i16 SoftLimiter(t_pmr_sps *mySps)
 		    tmp=((accum+setpt)*4)/128;
 		    accum=(-setpt)-tmp;
 			if(accum<amin)accum=amin;
-			compOut=1;
 			accum=-setpt;
 		}
 
@@ -1438,8 +1435,7 @@ i16 DelayLine(t_pmr_sps *mySps)
 i16 ctcss_detect(t_pmr_chan *pChan)
 {
 	i16 i,points2do,*pInput,hit,thit,relax;
-	i16 tnum, tmp,indexNow,gain,diffpeak;
-	i16 difftrig;
+	i16 tnum, tmp,indexNow,diffpeak;
 	i16 tv0,tv1,tv2,tv3,indexDebug;
 	i16 points=0;
 	i16 indexWas=0;
@@ -1454,10 +1450,6 @@ i16 ctcss_detect(t_pmr_chan *pChan)
 
 	relax  = pChan->rxCtcss->relax;
 	pInput = pChan->rxCtcss->input;
-	gain   = pChan->rxCtcss->gain;
-
-	if(relax) difftrig=(-0.1*M_Q15);
-	else difftrig=(-0.05*M_Q15);
 
 	thit=hit=-1;
 
@@ -1644,11 +1636,10 @@ i16 ctcss_detect(t_pmr_chan *pChan)
 	//TRACEX((" ctcss_detect() thit %i %i\n",thit,pChan->rxCtcss->decode));
 	return(0);
 }
-#ifndef	XPMR_VOTER
 /*
 	TxTestTone
 */
-static i16	TxTestTone(t_pmr_chan *pChan, i16 function)
+i16	TxTestTone(t_pmr_chan *pChan, i16 function)
 {
 	if(function==1)
 	{
@@ -1663,7 +1654,7 @@ static i16	TxTestTone(t_pmr_chan *pChan, i16 function)
 	}
 	return 0;
 }
-#endif
+
 /*
 	assumes:
 	sampling rate is 48KS/s
@@ -1759,7 +1750,33 @@ t_pmr_chan	*createPmrChannel(t_pmr_chan *tChan, i16 numSamples)
 		pChan->tracetype=tChan->tracetype;
 		pChan->ukey=tChan->ukey;
 		pChan->name=tChan->name;
-	}
+		pChan->fever = tChan->fever;
+
+        if(tChan->rxlpf<MAX_RXLPF&&tChan->rxlpf>=0)
+            pChan->rxlpf=tChan->rxlpf;
+        else
+            pChan->rxlpf=0;
+        
+        if(tChan->rxhpf<MAX_RXHPF&&tChan->rxhpf>=0)
+            pChan->rxhpf=tChan->rxhpf;
+        else
+            pChan->rxhpf=0;
+        
+        if(tChan->txlpf<MAX_TXLPF&&tChan->txlpf>=0)
+            pChan->txlpf=tChan->txlpf;
+        else
+            pChan->txlpf=0;
+        
+        if(tChan->txhpf<MAX_TXHPF&&tChan->txhpf>=0)
+            pChan->txhpf=tChan->txhpf;
+        else
+            pChan->txhpf=0;
+        ast_log(LOG_NOTICE,"xpmr rxlpf: %d\n",pChan->rxlpf);
+        ast_log(LOG_NOTICE,"xpmr rxhpf: %d\n",pChan->rxhpf);
+        ast_log(LOG_NOTICE,"xpmr txlpf: %d\n",pChan->txlpf);
+        ast_log(LOG_NOTICE,"xpmr txhpf: %d\n",pChan->txhpf);
+
+    }
 
 	if(pChan->rxCarrierHyst==0)
 		pChan->rxCarrierHyst = 3000;
@@ -2078,13 +2095,13 @@ t_pmr_chan	*createPmrChannel(t_pmr_chan *tChan, i16 numSamples)
 	pSps->decimator=pSps->decimate=6;
 	pSps->interpolate=pSps->interpolate=1;
 	pSps->nSamples=pChan->nSamplesRx;
-	pSps->ncoef=taps_fir_bpf_noise_1;
+	pSps->ncoef=fir_rxlpf[pChan->rxlpf].taps;
 	pSps->size_coef=2;
-	pSps->coef=(void*)coef_fir_lpf_3K_1;
-	pSps->nx=taps_fir_bpf_noise_1;
+	pSps->coef=(void*)fir_rxlpf[pChan->rxlpf].coefs;
+	pSps->nx=fir_rxlpf[pChan->rxlpf].taps;
 	pSps->size_x=2;
 	pSps->x=(void*)(calloc(pSps->nx,pSps->size_coef));
-	pSps->calcAdjust=(gain_fir_lpf_3K_1*256)/0x0100;
+	pSps->calcAdjust=(fir_rxlpf[pChan->rxlpf].gain*256)/0x0100;
 	pSps->outputGain=(1.0*M_Q8);
 	pSps->discfactor=2;
 	pSps->hyst=pChan->rxCarrierHyst;
@@ -2151,14 +2168,14 @@ t_pmr_chan	*createPmrChannel(t_pmr_chan *tChan, i16 numSamples)
 	pSps->nSamples=pChan->nSamplesRx;
 	pSps->decimator=pSps->decimate=1;
 	pSps->interpolate=1;
-	pSps->ncoef=taps_fir_hpf_300_9_66;
+	pSps->ncoef=fir_rxhpf[pChan->rxhpf].taps;
 	pSps->size_coef=2;
-	pSps->coef=(void*)coef_fir_hpf_300_9_66;
-	pSps->nx=taps_fir_hpf_300_9_66;
+	pSps->coef=(void*)fir_rxhpf[pChan->rxhpf].coefs;
+	pSps->nx=fir_rxhpf[pChan->rxhpf].taps;
 	pSps->size_x=2;
 	pSps->x=(void*)(calloc(pSps->nx,pSps->size_x));
 	if(pSps==NULL)printf("Error: calloc(), createPmrChannel()\n");
-	pSps->calcAdjust=gain_fir_hpf_300_9_66;
+	pSps->calcAdjust=fir_rxhpf[pChan->rxhpf].gain;
 	pSps->inputGain=(1*M_Q8);
 	pSps->outputGain=(1*M_Q8);
 	pChan->prxVoiceAdjust=&(pSps->outputGain);
@@ -2189,6 +2206,10 @@ t_pmr_chan	*createPmrChannel(t_pmr_chan *tChan, i16 numSamples)
 		pSps->outputGain=(1.0*M_Q8);
 		pChan->prxVoiceMeasure=pSps->sink;
 		pChan->prxVoiceAdjust=&(pSps->outputGain);
+	} else {
+		// force delay to be true
+		if (pChan->rxSquelchDelay == 0)
+			pChan->rxSquelchDelay = 30;
 	}
 
 	if(pChan->rxSquelchDelay>RXSQDELAYBUFSIZE/8-1)
@@ -2201,7 +2222,10 @@ t_pmr_chan	*createPmrChannel(t_pmr_chan *tChan, i16 numSamples)
 		pSps=pChan->spsDelayLine=pSps->nextSps=createPmrSps(pChan);
 		pChan->spsRxSquelchDelay=pSps;
 		pSps->sigProc=DelayLine;
-		pSps->source=pChan->pRxSpeaker;
+		if (pChan->rxDeEmpEnable)
+			pSps->source=pChan->pRxSpeaker;
+		else
+			pSps->source=pChan->pRxHpf;
 		pSps->sink=pChan->pRxSpeaker;
 		pChan->spsRxOut=pSps;					 // OUTPUT STRUCTURE!
 		pSps->enabled=1;
@@ -2271,14 +2295,14 @@ t_pmr_chan	*createPmrChannel(t_pmr_chan *tChan, i16 numSamples)
 		pSps->nSamples=pChan->nSamplesTx;
 		pSps->decimator=pSps->decimate=1;
 		pSps->interpolate=1;
-		pSps->ncoef=taps_fir_hpf_300_9_66;
+		pSps->ncoef=fir_txhpf[pChan->txhpf].taps;
 		pSps->size_coef=2;
-		pSps->coef=(void*)coef_fir_hpf_300_9_66;
-		pSps->nx=taps_fir_hpf_300_9_66;
+		pSps->coef=(void*)fir_txhpf[pChan->txhpf].coefs;
+		pSps->nx=fir_txhpf[pChan->txhpf].taps;
 		pSps->size_x=2;
 		pSps->x=(void*)(calloc(pSps->nx,pSps->size_x));
 		if(pSps==NULL)printf("Error: calloc(), createPmrChannel()\n");
-		pSps->calcAdjust=gain_fir_hpf_300_9_66;
+		pSps->calcAdjust=fir_txhpf[pChan->txhpf].gain;
 		pSps->inputGain=(1*M_Q8);
 		pSps->outputGain=(1*M_Q8);
 		inputTmp=pChan->pTxHpf;
@@ -2414,11 +2438,11 @@ t_pmr_chan	*createPmrChannel(t_pmr_chan *tChan, i16 numSamples)
 	pSps->calcAdjust=gain_fir_lpf_3K_2;
 #else
 	pSps->interpolate=6;
-	pSps->ncoef=taps_fir_lpf_3K_1;
+	pSps->ncoef=fir_txlpf[pChan->txlpf].taps;
 	pSps->size_coef=2;
-	pSps->coef=(void*)coef_fir_lpf_3K_1;
-	pSps->nx=taps_fir_lpf_3K_1;
-	pSps->calcAdjust=gain_fir_lpf_3K_1;
+	pSps->coef=(void*)fir_txlpf[pChan->txlpf].coefs;
+	pSps->nx=fir_txlpf[pChan->txlpf].taps;
+	pSps->calcAdjust=fir_txlpf[pChan->txlpf].gain;
 #endif
 	pSps->size_x=2;
 	pSps->x=(void*)(calloc(pSps->nx,pSps->size_x));
@@ -2474,11 +2498,11 @@ t_pmr_chan	*createPmrChannel(t_pmr_chan *tChan, i16 numSamples)
 		pSps->calcAdjust=(gain_fir_lpf_3K_2);
 #else
 		pSps->interpolate=6;
-		pSps->ncoef=taps_fir_lpf_3K_1;
+		pSps->ncoef=fir_txlpf[pChan->txlpf].taps;
 		pSps->size_coef=2;
-		pSps->coef=(void*)coef_fir_lpf_3K_1;
-		pSps->nx=taps_fir_lpf_3K_1;
-		pSps->calcAdjust=(gain_fir_lpf_3K_1);
+		pSps->coef=(void*)fir_txlpf[pChan->txlpf].coefs;
+		pSps->nx=fir_txlpf[pChan->txlpf].taps;
+		pSps->calcAdjust=(fir_txlpf[pChan->txlpf].gain);
 #endif
 		pSps->size_x=2;
 		pSps->x=(void*)(calloc(pSps->nx,pSps->size_x));
@@ -2636,9 +2660,6 @@ i16 PmrTx(t_pmr_chan *pChan, i16 *input)
 		memcpy(pChan->pTxInput,input,pChan->nSamplesRx*2);
 	}
 	#endif
-
-	//if(pChan->b.radioactive)pChan->dd.debug=1;
-	//else pChan->dd.debug=0;
 
 	dedrift_write(pChan,input);
 
@@ -3490,5 +3511,9 @@ void dedrift_write(t_pmr_chan *pChan, i16 *src )
 	if(pChan->dd.initcnt!=0)pChan->dd.initcnt--;
 	pChan->dd.accum+=pChan->dd.framesize;
 }
+
+#if GCC_VERSION > 40600
+#pragma GCC diagnostic pop
+#endif
 
 /* end of file */

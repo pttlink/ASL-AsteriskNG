@@ -645,7 +645,7 @@ enum{DAQ_TYPE_UCHAMELEON};
 
 
 /* turn on extra debugging messages -- comment out remove */
-//#define DEVEL_DEBUG 
+#define DEVEL_DEBUG 
 
 /* Macro to make it easier to log to LOG_DEBUG depending on if DEVEL_DEBUG is defined */
 #ifdef DEVEL_DEBUG
@@ -23148,7 +23148,7 @@ static int rpt_exec(struct ast_channel *chan, void *data)
 	int iskenwood_pci4,authtold,authreq,setting,notremming,reming;
 	int ismuted,dtmfed,phone_vox = 0, phone_monitor = 0;
 	char tmp[256], keyed = 0,keyed1 = 0;
-	char *options,*stringp,*callstr,*tele,c,*altp,*memp;
+	char *options="",*stringp,*callstr,*tele,c,*altp,*memp;
 	char sx[320],*sy,myfirst,*b,*b1;
 
 	struct	rpt *myrpt;

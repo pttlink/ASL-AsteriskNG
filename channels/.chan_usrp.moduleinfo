@@ -1,2 +1,0 @@
-<member name="chan_usrp" displayname="USRP Channel Module" remove_on_change="channels/chan_usrp.o channels/chan_usrp.so">
-</member>

@@ -22,16 +22,19 @@ Welcome to the ASL-AsteriskNG "Next Generation" client.
 
 This code is the basis for what will be the ASL 1.10 client release known asl the ASL-NG Client.
 
-===History===
+## History
+
 The work in this repository is the result of Stacy Olivas, KG7QIN, having spent the time to port the available app_rpt code from the
 ASL Asterisk 1.4 code base to Asterisk 1.8.  This repo is an import of my (KG7QIN's) repo with the same name from GitHub at 
 https://github.com/KG7QIN/AllStarLink-Asterisk-1.8.  However this repo contains updates since the fork and should be considered the
-main upstream fork for this code.  Additionally, this repository was renamed as ASL-AsteriskNG to reflect that it is the Next Generation
+main upstream for this code.  Additionally, this repository was renamed as ASL-AsteriskNG to reflect that it is the Next Generation
 client for app_rpt.
 
 The code in this repository should be considered ALPHA quality code.   While it has been successully compiled and tested on
-Deban 9.4 and Ubuntu 16.04 system and should have to issues running on later versions, there are still bugs in this code
+Deban 9.4 and Ubuntu 16.04 system and should have no issues running on later versions of these distros, there are still bugs in this code
 that need to be addressed before it is considered stable.
+
+* This code is what runs the PTTLink telephone portal and formerly ran the AllStarLink telephone portal.
 
 This code does run, but there are some problems with it still.  The problems range from those that were "inherited" from the 1.4 code base of
 the app_rpt "suite" of programs that runs AllStarLink to differences within the Asterisk 1.8 code base that are causing issue.
@@ -54,7 +57,7 @@ This code has been successfully compiled on both Debian Stretch (9.4.0) and Ubun
 
 To automatically build and install the port and all associated files:
 <pre>
-# https://git.allstarlink.org/pttlink/ASL-AsteriskNG/raw/master/setup.sh
+# https://github.com/pttlink/ASL-AsteriskNG/raw/master/setup.sh
 # sh setup.sh 
 </pre>
 
@@ -75,7 +78,7 @@ If you prefer to do all the steps yourself:
 
 # Download the sources
 # cd /usr/work 
-# git clone https://git.allstarlink.org/pttlink/ASL-AsteriskNG.git 
+# git clone https://github.com/pttlink/ASL-AsteriskNG.git 
 # wget https://github.com/KG7QIN/AllStarLink/raw/master/dahdi/dahdi-linux-complete-2.10.2%2B2.10.2.tar.gz
 
 # Run the Asterisk prereq install script
@@ -161,8 +164,7 @@ Congratulations!  If all went well, you will have a complete install of Asterisk
 
 Note that these steps are purposely compiling Asterisk and modules with debugging info (-g).  This is to make it easier to collect information about various problems while testing the port out.
 
-Please test and abuse this and let me know what problems you find. Ideally, we can use the issues page at https://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8/issues to track any problems that are found and resolved.
-
+Please test and abuse this and let me know what problems you find.
 
 There are also some changes that you will need to make to your extensions.conf file (or you an opt to convert it to either extensions.ael or extensions.lua).
 

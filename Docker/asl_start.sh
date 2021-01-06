@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Asterisk 1.8 start script for AllStarLink
+# ASL-AsteriskNG startup script
 # By: Stacy Olivas - KG7QIN - 6/23/18
 #
 # Version 0.01

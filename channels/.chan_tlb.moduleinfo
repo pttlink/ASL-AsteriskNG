@@ -1,2 +1,0 @@
-<member name="chan_tlb" displayname="TheLinkBox channel driver" remove_on_change="channels/chan_tlb.o channels/chan_tlb.so">
-</member>

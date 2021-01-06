@@ -1,3 +1,0 @@
-<member name="res_smdi" displayname="Simplified Message Desk Interface (SMDI) Resource" remove_on_change="res/res_smdi.o res/res_smdi.so">
-	<support_level>core</support_level>
-</member>

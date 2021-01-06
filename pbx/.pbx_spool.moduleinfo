@@ -1,3 +1,0 @@
-<member name="pbx_spool" displayname="Outgoing Spool Support" remove_on_change="pbx/pbx_spool.o pbx/pbx_spool.so">
-	<support_level>core</support_level>
-</member>

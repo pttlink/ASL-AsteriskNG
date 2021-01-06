@@ -1,3 +1,0 @@
-<member name="app_amd" displayname="Answering Machine Detection Application" remove_on_change="apps/app_amd.o apps/app_amd.so">
-	<support_level>extended</support_level>
-</member>

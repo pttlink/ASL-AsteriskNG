@@ -1,6 +1,0 @@
-<member name="chan_simpleusb" displayname="simple usb Radio Interface Channel Driver" remove_on_change="channels/chan_simpleusb.o channels/chan_simpleusb.so">
-	<depend>oss</depend>
-	<depend>alsa</depend>
-        <depend>usb</depend>
-        <defaultenabled>yes</defaultenabled> 	 	 
-</member>

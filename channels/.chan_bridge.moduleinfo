@@ -1,3 +1,0 @@
-<member name="chan_bridge" displayname="Bridge Interaction Channel" remove_on_change="channels/chan_bridge.o channels/chan_bridge.so">
-	<support_level>core</support_level>
-</member>

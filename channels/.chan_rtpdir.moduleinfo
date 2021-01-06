@@ -1,2 +1,0 @@
-<member name="chan_rtpdir" displayname="RTPDIR Ham Radio Bridging Thingy" remove_on_change="channels/chan_rtpdir.o channels/chan_rtpdir.so">
-</member>

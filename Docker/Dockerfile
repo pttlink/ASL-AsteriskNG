@@ -1,6 +1,6 @@
-# AllStarLink 1.8 Test Port
+# ASL-AsteriskNG Test Port
 #
-# VERSION 0.0.17
+# VERSION 0.0.17-A
 #
 FROM debian:stretch
 
@@ -25,15 +25,15 @@ RUN set -x \
 RUN set -x \
 	&& mkdir /usr/work \
 	&& cd /usr/work \
-	&& git clone https://git.allstarlink.org/KG7QIN/AllStarLink-Asterisk-1.8.git \
+	&& git clone https://github.com/pttlink/ASL-AsteriskNG.git \
     	&& wget https://github.com/KG7QIN/AllStarLink/raw/master/dahdi/dahdi-linux-complete-2.10.2%2B2.10.2.tar.gz 
 
 # Run Asterisk Prereq install script
 RUN set -x \
 	&& mkdir /etc/vpb \
-    	&& cd /usr/work/AllStarLink-Asterisk-1.8 \
-    	&& chmod a+x /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq \
-    	&& /usr/work/AllStarLink-Asterisk-1.8/contrib/scripts/install_prereq install \
+    	&& cd /usr/work/ASL-AsteriskNG \
+    	&& chmod a+x /usr/work/ASL-AsteriskNG/contrib/scripts/install_prereq \
+    	&& /usr/work/ASL-AsteriskNG/contrib/scripts/install_prereq install \
     	&& apt-get install -y libssl1.0-dev doxygen
 
 # Extract, build and load DAHDI modules
@@ -69,7 +69,7 @@ RUN set -x \
 
 # Build Asterisk 1.8 port
 RUN set -x \
-	&& cd /usr/work/AllStarLink-Asterisk-1.8/ \
+	&& cd /usr/work/ASL-AsteriskNG/ \
     	&& make distclean \
     	&& ./configure LDFLAGS="-zmuldefs -lasound" CFLAGS="-Wno-unused -Wno-all -Wno-int-conversion -g" \
         && make menuselect.makeopts || : \
@@ -82,7 +82,7 @@ RUN set -x \
 
 COPY ./asl_start.sh /
 RUN chmod a+x /asl_start.sh
-RUN cd /usr/work/AllStarLink-Asterisk-1.8 \
+RUN cd /usr/work/ASL-AsteriskNG \
 	&& ./post_ast_setup.sh
 
 

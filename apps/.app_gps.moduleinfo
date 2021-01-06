@@ -1,2 +1,0 @@
-<member name="app_gps" displayname="GPS interface module" remove_on_change="apps/app_gps.o apps/app_gps.so">
-</member>

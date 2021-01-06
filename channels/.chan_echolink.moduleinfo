@@ -1,3 +1,0 @@
-<member name="chan_echolink" displayname="echolink channel driver" remove_on_change="channels/chan_echolink.o channels/chan_echolink.so">
-	<depend>zlib</depend>
-</member>

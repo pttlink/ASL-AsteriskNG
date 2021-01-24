@@ -24,7 +24,9 @@ This code is the basis for what will be the ASL 1.10 client release known asl th
 
 ## Wiki Page
 
-Visit the ASL-AllStarNG Wiki page at https://wiki.pttlink.org/wiki/ASL-AsteriskNG
+Visit the ASL-AsteriskNG Wiki page at https://wiki.pttlink.org/wiki/ASL-AsteriskNG
+
+This page contains the latest information on ASL-AsteriskNG.
 
 ## History
 

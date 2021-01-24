@@ -22,6 +22,10 @@ Welcome to the ASL-AsteriskNG "Next Generation" client.
 
 This code is the basis for what will be the ASL 1.10 client release known asl the ASL-NG Client.
 
+## Wiki Page
+
+Visit the ASL-AllStarNG Wiki page at https://wiki.pttlink.org/wiki/ASL-AsteriskNG
+
 ## History
 
 The work in this repository is the result of Stacy Olivas, KG7QIN, having spent the time to port the available app_rpt code from the

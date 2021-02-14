@@ -20,7 +20,7 @@
 # ASL-AsteriskNG
 Welcome to the ASL-AsteriskNG "Next Generation" client.  
 
-This code is the basis for what will be the ASL 1.10 client release known asl the ASL-NG Client.
+This code is the basis for what will be the next generation ASL client release known asl the ASL-NG Client.
 
 ## Wiki Page
 
